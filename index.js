@@ -1,35 +1,36 @@
 console.log('Starting...\n');
 
-const fs = require('fs');
-const path = require('path');
-const { fork } = require('child_process');
+const $ = require, _0x1 = $('fs'), _0x2 = $('path'), _0x3 = $('child_process');
+(function () {
+  const _ = [_0x2, _0x1],
+    $$ = [Buffer.from('4c4943454e5345', 'hex').toString(), 'utf8', '··───── LICENSE ─────··\n\n', '\n\n··───────────··\n', 'LICENSE tidak ditemukan. Jangan hapus file ini!'],
+    $0 = _[0].join(__dirname, $$[0]),
+    $1 = _[1].existsSync($0),
+    $2 = console;
 
-const licensePath = path.join(__dirname, 'LICENSE');
-if (fs.existsSync(licensePath)) {
-  const licenseContent = fs.readFileSync(licensePath, 'utf8');
-  console.log('··───── LICENSE ─────··\n\n' + licenseContent + `\n\n··───────────··\n`);
-} else {
-  console.log('LICENSE file not found.');
-}
+  $1
+    ? $2.log($$[2] + _[1].readFileSync($0, $$[1]) + $$[3])
+    : ($2.log($$[4]), setInterval(() => {}, 1e3));
+})();
 
-const start = () => {
-  const p = fork(path.join(__dirname, 'main.js'), process.argv.slice(2), {
+const $_$ = () => {
+  const $$_ = _0x3.fork(_0x2.join(__dirname, 'main.js'), process.argv.slice(2), {
     stdio: ['inherit', 'inherit', 'inherit', 'ipc']
   });
 
-  p.on('message', (data) => {
-    if (data === 'reset') {
+  $$_.on('message', ($) => {
+    if ($ === 'reset') {
       console.log('Restarting...');
-      p.kill();
-    } else if (data === 'uptime') {
-      p.send(process.uptime());
+      $$_.kill();
+    } else if ($ === 'uptime') {
+      $$_.send(process.uptime());
     }
   });
 
-  p.on('exit', (code) => {
-    console.log('Exited with code:', code);
-    start();
+  $$_.on('exit', ($) => {
+    console.log('Exited with code:', $);
+    $_$();
   });
 };
 
-start();
+$_$();
