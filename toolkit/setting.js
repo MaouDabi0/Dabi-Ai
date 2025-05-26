@@ -42,12 +42,12 @@ global.stGcL = Sys.stGcL;
 global.updateBio = Sys.updateBio;
 global.exCht = Sys.exCht;
 global.getUser = Sys.getUser;
-global.gcData = Sys.getGroupData;
+global.gcData = Sys.getGrpDB;
 global.parseMessage = Sys.parseMessage;
-global.loadGroupDB = Sys.loadGroupDB;
 global.parseNoPrefix = Sys.parseNoPrefix;
 global.chtEmt = Sys.chtEmt;
 global.stGrup = Sys.exGrp;
+global.Format = Sys.Format;
 global.ai = emtData.ai;
 global.mtData = emtData.mtData;
 global.gtMJid = emtData.gtMention;
@@ -58,10 +58,9 @@ global.rctKey = reactId.rctKey;
 global.gcFilter = emtData.gcFilter;
 global.calNumber = emtData.colNumb;
 global.bdWrd = emtData.bdWord;
+global.afkCencel = emtData.afkCencel;
 
 Object.assign(global, {
-    Format: Sys.Format,
-    Connect: Sys.Connect,
     target: Sys.target,
     setting,
     toko,
@@ -96,6 +95,7 @@ Object.assign(global, {
     prem: setting.msg.rejectMsg.isPremium,
     zellApi: setting.apiKey.zellApi.web,
     ytKey: setting.apiKey.ytKey.key,
+    siptzKey: setting.apiKey.siputKey.web,
 
     ownerStore: {
         dana: setting.ownerSetting.ownerStore?.dana || 'Tidak tersedia',

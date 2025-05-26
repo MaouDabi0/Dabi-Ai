@@ -1,4 +1,7 @@
 const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
+
 const groupCache = new Map();
 
 async function mtData(id, conn) {
@@ -16,30 +19,50 @@ async function mtData(id, conn) {
   }
 }
 
-async function ai(textMessage, message, senderId) {
-  const context = global.logic
-    .replace("${ownerName}", global.ownerName)
-    .replace("${senderName}", message.pushName || senderId.split('@')[0]);
+const sessionPath = path.join(__dirname, '../session/AiSesion.json');
 
-  const apiUrl = `${global.zellApi}/ai/custom`;
+function loadSesiAi() {
+  if (!fs.existsSync(sessionPath)) return {};
+  return JSON.parse(fs.readFileSync(sessionPath));
+}
+
+function saveSesiAi(session) {
+  fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+}
+
+async function ai(textMessage, message, senderId) {
+  const ctx = global.logic;
+  const url = `${global.siptzKey}/api/ai/gpt3`;
+  const ses = loadSesiAi();
+
+  ses[senderId] ??= [{ role: "system", content: ctx }];
+  ses[senderId].push({ role: 'user', content: textMessage });
+
+  const body = JSON.stringify(ses[senderId].filter(v => v.role !== 'assistant'));
 
   try {
-    const res = await fetch(`${apiUrl}?text=${encodeURIComponent(textMessage)}&logic=${encodeURIComponent(context)}`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body
+    });
+
     const json = await res.json();
-    return json;
+    if (json?.status && json?.data) {
+      ses[senderId].push({ role: "assistant", content: json.data });
+      saveSesiAi(ses);
+      return json.data;
+    }
+    throw new Error("Invalid response");
   } catch (e) {
-    console.error("Error in ai():", e.message);
-    return {};
+    console.error("AI error:", e.message);
+    return "Maaf, terjadi kesalahan saat menghubungi AI.";
   }
 }
 
 async function gbLink(text) {
-  if (!text) {
-    return false;
-  }
-
+  if (!text) return false;
   const regex = /https?:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{15,20}/i;
-  const match = text.match(regex);
   return regex.test(text);
 }
 
@@ -60,11 +83,8 @@ async function gcFilter(conn, message, chatId, senderId, isGroup) {
 
     let textMessage = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
     const msgType = Object.keys(message.message || {})[0];
-    
-    const isTagSw =
-      !!message.message?.groupStatusMentionMessage ||
-      !!message.message?.extendedTextMessage?.contextInfo?.groupStatusMentionMessage ||
-      !!message.message?.ephemeralMessage?.message?.extendedTextMessage?.contextInfo?.groupStatusMentionMessage;
+
+    const isTagSw = !!message.message?.groupStatusMentionMessage;
 
     if (isTagSw) textMessage = 'Grup ini disebut dalam status';
 
@@ -80,22 +100,18 @@ async function gcFilter(conn, message, chatId, senderId, isGroup) {
         reason: 'Stiker terdeteksi',
       },
       {
-      enabled: groupData.gbFilter?.antibot === true,
-      condition: (() => {
-        const context = message.message?.contextInfo || {};
-        const fwdScore = context.forwardingScore || 0;
-        const isForwardedFromChannel = !!context.externalAdReply || context.forwardedNewsletterMessage != null;
-        const isForwarded = fwdScore > 0 || isForwardedFromChannel;
-        const hasMenuWords = /menu|owner|allmenu/i.test(textMessage);
-        const hasPreview = !!(
-          message.message?.extendedTextMessage?.thumbnailUrl || 
-          message.message?.extendedTextMessage?.mediaUrl
-        );
-        const isDoc = msgType === 'documentMessage';
+        enabled: groupData.gbFilter?.antibot === true,
+        condition: (() => {
+          const context = message.message?.contextInfo || {};
+          const fwdScore = context.forwardingScore || 0;
+          const isForwardedFromChannel = !!context.externalAdReply || context.forwardedNewsletterMessage != null;
+          const isForwarded = fwdScore > 0 || isForwardedFromChannel;
+          const hasMenuWords = /menu|owner|allmenu/i.test(textMessage);
 
-        return isForwarded || hasMenuWords || hasPreview || isDoc;
-      })(),
-      reason: 'Deteksi konten mencurigakan',
+          const isDoc = msgType === 'documentMessage';
+          return isForwarded || hasMenuWords || isDoc;
+        })(),
+        reason: 'Deteksi konten mencurigakan',
       },
       {
         enabled: groupData.gbFilter?.antiTagSw === true,
@@ -221,7 +237,26 @@ async function bdWord(conn, message, chatId, senderId, isGroup) {
   }
 }
 
-module.exports = { 
+async function afkCencel(senderId, chatId, message, conn) {
+  const db = readDB();
+  const senderKey = Object.keys(db.Private).find(key => db.Private[key].Nomor === senderId);
+  if (!senderKey || !db.Private[senderKey].afk?.afkTime) return;
+
+  const afkSince = db.Private[senderKey].afk.afkTime;
+  const reason = db.Private[senderKey].afk.reason || 'Tidak ada alasan';
+  const now = Math.floor(Date.now() / 1000);
+  const waktu = Format.duration(afkSince, now);
+
+  db.Private[senderKey].afk = {};
+  saveDB(db);
+
+  await conn.sendMessage(chatId, {
+    text: `✅ *Kamu telah kembali dari AFK!*\n⏱️ Durasi: ${waktu}\n📌 Alasan sebelumnya: ${reason}`,
+    mentions: [senderId]
+  }, { quoted: message });
+}
+
+module.exports = {
   ai,
   mtData,
   gbLink,
@@ -229,5 +264,6 @@ module.exports = {
   tryPrem,
   translate,
   colNumb,
-  bdWord
+  bdWord,
+  afkCencel
 };

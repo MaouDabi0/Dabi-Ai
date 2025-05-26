@@ -111,6 +111,7 @@ module.exports = {
           isPrem: false,
           time: 0,
         },
+        afk: {}
       };
 
       saveDB(db);

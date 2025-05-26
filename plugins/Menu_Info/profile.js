@@ -37,20 +37,13 @@ module.exports = {
 
       let isPremiumText = "Tidak ❌";
       if (user.isPremium?.isPrem) {
-        const now = Date.now();
-        const activated = user.isPremium.activatedAt || now;
-        const expired = activated + user.isPremium.time;
+        const now = Math.floor(Date.now() / 1000);
+        const activated = Math.floor((user.isPremium.activatedAt || Date.now()) / 1000);
+        const expired = activated + Math.floor(user.isPremium.time / 1000);
 
         if (expired > now) {
-          const remaining = expired - now;
-          const m = Math.floor(remaining / (1000 * 60));
-          const h = Math.floor(m / 60);
-          const d = Math.floor(h / 24);
-          isPremiumText = d > 0
-            ? `${d} Hari ${h % 24} Jam ${m % 60} Menit`
-            : h > 0
-              ? `${h} Jam ${m % 60} Menit`
-              : `${m} Menit`;
+          const remaining = Format.duration(now, expired);
+          isPremiumText = remaining.trim();
         } else {
           isPremiumText = "Kadaluarsa ❗";
         }

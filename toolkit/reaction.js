@@ -1,6 +1,7 @@
 const { run: kickRun } = require('../plugins/Menu_Group/kick');
 const { run: promoteRun } = require('../plugins/Menu_Group/promote');
 const { run: demoteRun } = require('../plugins/Menu_Group/demote');
+const { run: playRun } = require('../plugins/Menu_Download/play');
 
 async function rctKey(message, conn) {
   try {
@@ -88,16 +89,37 @@ async function rctKey(message, conn) {
       }
     }
 
+    if (['🔍', '🔎'].includes(reaction)) {
+      const msg = conn.reactionCache?.get(reactedKey.id);
+      if (!msg) return;
+
+      const searchText =
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        msg.message?.videoMessage?.caption;
+
+      if (!searchText) return;
+
+      await playRun(conn, msg, {
+        chatInfo,
+        textMessage: searchText,
+        prefix: '.',
+        commandText: 'play',
+        args: searchText.trim().split(/\s+/)
+      });
+    }
+
     if (['🌐', '🌏', '🌍', '🌎'].includes(reaction)) {
       const msg = conn.reactionCache?.get(reactedKey.id);
       if (!msg) return;
-    
+
       const quotedText =
         msg.message?.conversation ||
         msg.message?.extendedTextMessage?.text ||
         msg.message?.imageMessage?.caption ||
         msg.message?.videoMessage?.caption;
-    
+
       if (!quotedText) return;
     
       const translated = await translate(quotedText, 'id');

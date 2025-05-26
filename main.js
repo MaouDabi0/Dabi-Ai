@@ -25,22 +25,36 @@ global.categories = {};
 
 intDB();
 
+let counter = 0;
+
 setInterval(() => {
   const db = readDB();
 
   Object.keys(db.Private).forEach((key) => {
     const user = db.Private[key];
-    if (user.isPremium?.isPrem && user.isPremium.time > 0) {
-      user.isPremium.time -= 60000;
-      if (user.isPremium.time <= 0) {
-        user.isPremium.isPrem = false;
-        user.isPremium.time = 0;
+    if (user.afk && typeof user.afk.afkTime === 'number') {
+      if (user.afk.Afk === true) {
+        user.afk.afkTime += 1000;
       }
     }
   });
 
+  if (counter % 60 === 0) {
+    Object.keys(db.Private).forEach((key) => {
+      const user = db.Private[key];
+      if (user.isPremium?.isPrem && user.isPremium.time > 0) {
+        user.isPremium.time -= 60000;
+        if (user.isPremium.time <= 0) {
+          user.isPremium.isPrem = false;
+          user.isPremium.time = 0;
+        }
+      }
+    });
+  }
+
   saveDB(db);
-}, 60000);
+  counter++;
+}, 1000);
 
 const configPath = path.join(__dirname, './toolkit/set/config.json');
 fs.watchFile(configPath, () => {
@@ -249,6 +263,8 @@ const startBot = async () => {
         setTimeout(async () => await conn.sendPresenceUpdate("paused", chatId), 3000);
       }
 
+      await afkCencel(senderId, chatId, message, conn);
+
       if (await global.chtEmt(textMessage, message, senderId, chatId, conn)) return;
 
       const parsedPrefix = parseMessage(message, isPrefix);
@@ -262,7 +278,7 @@ const startBot = async () => {
       
         for (const [file, plugin] of Object.entries(global.plugins)) {
           if (!plugin?.command?.includes(commandText)) continue;
-      
+
           const exPrx = plugin.prefix;
           const allowRun =
             exPrx === 'both' ||

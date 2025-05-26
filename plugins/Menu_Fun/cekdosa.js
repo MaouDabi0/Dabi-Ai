@@ -18,6 +18,7 @@ module.exports = {
       const { chatId, senderId, isGroup } = chatInfo;
       const targetId = target(message, senderId);
       const mentionTarget = targetId;
+      const tagJid = `${targetId}@s.whatsapp.net`;
 
       const dosaUnik = [...cekDosa].sort(() => Math.random() - 0.5).slice(0, 10);
 
@@ -28,7 +29,7 @@ module.exports = {
 
       await conn.sendMessage(chatId, {
         text: teks.trim(),
-        mentions: [`${targetId}@s.whatsapp.net`]
+        mentions: [tagJid]
       }, { quoted: message });
 
     } catch (error) {

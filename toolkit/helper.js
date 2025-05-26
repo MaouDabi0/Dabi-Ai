@@ -54,8 +54,8 @@ const loadPlug = () => {
   return { loaded, errors: failed, messages: errors };
 };
 
-const tempFolder = path.join(__dirname, '../temp');
-if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
+const tmpFoldr = path.join(__dirname, '../temp');
+if (!fs.existsSync(tmpFoldr)) fs.mkdirSync(tmpFoldr, { recursive: true });
 
 const dbFolder = path.join(__dirname, '../toolkit/db');
 const dbFile = path.join(dbFolder, 'database.json');
@@ -95,36 +95,36 @@ const getUser = (db, number) => {
   return { key, value: db.Private[key] };
 };
 
-const getGroupData = (chatId) => {
+const getGrpDB = (chatId) => {
   const db = readDB();
   return Object.values(db.Grup || {}).find(g => (g.Id || '').toString() === chatId.toString());
 };
 
 const enGcW = (chatId) => {
-  const data = getGroupData(chatId);
+  const data = getGrpDB(chatId);
   return data?.gbFilter?.Welcome?.welcome === true;
 };
 
 const getWelcTxt = (chatId) => {
-  const data = getGroupData(chatId);
+  const data = getGrpDB(chatId);
   const text = data?.gbFilter?.Welcome?.welcomeText;
   return (typeof text === 'string' && text.trim()) ? text : '👋 Selamat datang @user di grup!';
 };
 
 const enGcL = (chatId) => {
-  const data = getGroupData(chatId);
+  const data = getGrpDB(chatId);
   return data?.gbFilter?.Left?.gcLeft === true;
 };
 
 const getLeftTxt = (chatId) => {
-  const data = getGroupData(chatId);
+  const data = getGrpDB(chatId);
   const text = data?.gbFilter?.Left?.leftText;
   return (typeof text === 'string' && text.trim()) ? text : '👋 Selamat tinggal @user!';
 };
 
-const loadGroupDB = (chatId) => {
+const loadGrpDB = (chatId) => {
   const db = readDB();
-  let groupData = getGroupData(chatId);
+  let groupData = getGrpDB(chatId);
 
   if (!groupData) {
     db.Grup[chatId] = {
@@ -139,7 +139,7 @@ const loadGroupDB = (chatId) => {
 };
 
 const stGcW = (chatId, isOn, welcomeText) => {
-  const { db, groupData } = loadGroupDB(chatId);
+  const { db, groupData } = loadGrpDB(chatId);
   groupData.gbFilter.Welcome = groupData.gbFilter.Welcome || {};
   groupData.gbFilter.Welcome.welcome = isOn;
   if (welcomeText !== undefined) {
@@ -149,7 +149,7 @@ const stGcW = (chatId, isOn, welcomeText) => {
 };
 
 const stGcL = (chatId, isOn, leftText) => {
-  const { db, groupData } = loadGroupDB(chatId);
+  const { db, groupData } = loadGrpDB(chatId);
   groupData.gbFilter.Left = groupData.gbFilter.Left || {};
   groupData.gbFilter.Left.gcLeft = isOn;
   if (leftText !== undefined) {
@@ -177,11 +177,6 @@ const exGrp = async (conn, chatId, senderId) => {
   };
 };
 
-const Connect = {
-  log: text => console.log(`[LOG] ${text}`),
-  error: text => console.error(`[ERROR] ${text}`)
-};
-
 const Format = {
   time: () => moment().format('HH:mm'),
   realTime: () => moment().tz('Asia/Jakarta').format('HH:mm:ss DD-MM-YYYY'),
@@ -190,17 +185,14 @@ const Format = {
     const sec = process.uptime();
     const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
     return `${h}h ${m}m ${s}s`;
+  },
+  duration: (start, end) => {
+    const dur = end - start;
+    const d = Math.floor(dur / 86400);
+    const h = Math.floor((dur % 86400) / 3600);
+    const m = Math.floor((dur % 3600) / 60);
+    return `${d ? `${d} hari ` : ''}${h ? `${h} jam ` : ''}${m ? `${m} menit` : ''}`.trim();
   }
-};
-
-const download = async (url, filePath) => {
-  const writer = fs.createWriteStream(filePath);
-  const response = await axios({ url, method: 'GET', responseType: 'stream' });
-  response.data.pipe(writer);
-  return new Promise((res, rej) => {
-    writer.on('finish', res);
-    writer.on('error', rej);
-  });
 };
 
 const target = (message, senderId) => {
@@ -255,7 +247,7 @@ const updateBio = async conn => {
   }, 60000);
 };
 
-const isAutoAiEnabled = (senderId, chatId) => {
+const AiDB = (senderId, chatId) => {
   const database = readDB();
 
   if (chatId.endsWith('@s.whatsapp.net')) {
@@ -278,34 +270,34 @@ const isAutoAiEnabled = (senderId, chatId) => {
 };
 
 const chtEmt = async (textMessage, message, senderId, chatId, conn) => {
-  const botRawId = conn.user?.id || '';
-  const botNumber = botRawId.split(':')[0] + '@s.whatsapp.net';
+  const botRwId = conn.user?.id || '';
+  const botNumber = botRwId.split(':')[0] + '@s.whatsapp.net';
   const botName = global.botName?.toLowerCase();
 
-  if (senderId === botRawId || message.key.fromMe) return false;
+  if (senderId === botRwId || message.key.fromMe) return false;
 
   const contextInfo = message.message?.extendedTextMessage?.contextInfo;
-  const mentionedJids = contextInfo?.mentionedJid || [];
+  const mentionJid = contextInfo?.mentionedJid || [];
   const participant = contextInfo?.participant || '';
-  const isReplyToBot = participant === botNumber;
-  const isMentionedBot = mentionedJids.includes(botNumber);
+  const replyBot = participant === botNumber;
+  const mentionBot = mentionJid.includes(botNumber);
 
-  if (contextInfo && participant && !isReplyToBot && !isMentionedBot) return false;
+  if (contextInfo && participant && !replyBot && !mentionBot) return false;
 
-  if (!isAutoAiEnabled(senderId, chatId)) return false;
+  if (!AiDB(senderId, chatId)) return false;
 
   if (
     textMessage &&
     (
       textMessage.toLowerCase().includes(botName) ||
-      isReplyToBot ||
-      isMentionedBot
+      replyBot ||
+      mentionBot
     )
   ) {
     const aiReply = await global.ai(textMessage, message, senderId);
 
-    if (aiReply?.status && aiReply?.result) {
-      await conn.sendMessage(chatId, { text: aiReply.result }, { quoted: message });
+    if (aiReply) {
+      await conn.sendMessage(chatId, { text: aiReply }, { quoted: message });
     } else {
       await conn.sendMessage(chatId, { text: 'Maaf, saya tidak mengerti.' }, { quoted: message });
     }
@@ -386,13 +378,11 @@ const parseNoPrefix = (message) => {
 
 module.exports = {
   loadPlug,
-  Connect,
-  download,
   Format,
   target,
   chkOwner,
   chkPrem,
-  getGroupData,
+  getGrpDB,
   intDB,
   readDB,
   saveDB,
@@ -405,7 +395,6 @@ module.exports = {
   stGcL,
   updateBio,
   chtEmt,
-  loadGroupDB,
   exCht,
   parseMessage,
   parseNoPrefix,

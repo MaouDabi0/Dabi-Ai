@@ -23,6 +23,10 @@ module.exports = {
         return conn.sendMessage(chatId, { text: "⚠️ Balas stiker atau kirim stiker dengan caption *toimg* untuk mengonversi!" }, { quoted: message });
       }
 
+      if (sticker.isAnimated) {
+        return conn.sendMessage(chatId, { text: "❌ Stiker animasi tidak bisa dikonversi menjadi gambar." }, { quoted: message });
+      }
+
       const tempDir = path.join(__dirname, "../../temp/");
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 

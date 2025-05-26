@@ -14,6 +14,7 @@ module.exports = {
   }) => {
     const { chatId, senderId } = chatInfo;
     let targetId = target(message, senderId);
+    const tagJid = `${targetId}@s.whatsapp.net`;
     const persentase = Math.floor(Math.random() * 101);
 
     let komentar;
@@ -27,7 +28,7 @@ module.exports = {
 
     await conn.sendMessage(chatId, {
       text: teks,
-      mentions: [`${targetId}@s.whatsapp.net`]
+      mentions: [tagJid]
     }, { quoted: message });
   }
 };
