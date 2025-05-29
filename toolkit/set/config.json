@@ -1,7 +1,7 @@
 {
   "ownerSetting": {
     "ownerNumber": [
-      "6283894391287",
+           "6283894391287",
       "62838-61319115"
     ],
     "ownerName": "NirKyy Tech",
@@ -17,7 +17,7 @@
       "gopay": "",
       "ovo": ""
     },
-    "forOwner": true
+    "forOwner": false
   },
   "botSetting": {
     "botName": "Alicia AI",
@@ -26,20 +26,20 @@
     "thumbnail": "https://github.com/rikikangsc2-eng/rikikangsc2-eng.github.io/raw/refs/heads/main/galery/images.jpeg",
     "footer": "© NirKyy",
     "sendTextLink": {
-      "chshort": "https://chat.whatsapp.com/GNL5dpxBjN8Bsz4PZ22YUp",
-      "gcshort": "https://chat.whatsapp.com/GNL5dpxBjN8Bsz4PZ22YUp",
+      "chshort": "https://whatsapp.com/channel/0029Vb3qLJRDuMRdjacRwe2T",
+      "gcshort": "https://chat.whatsapp.com/LKhQFihGIsW6ahwk8umrGH",
       "music": ""
     },
     "autoread": {
       "group": true,
       "private": true
     },
-    "Mode": "on",
-    "autoTyping": true,
+    "Mode": "off",
+    "autoTyping": false,
     "public": true,
     "autoBio": true,
-    "logic": "Kamu Adalah Alicia AI"
- },
+    "logic": "Nama kamu adalah Alicia Ai, lebih suka dipanggil Dabi Chan atau Dabi. Dabi adalah gadis dengan warna rambut biru neon. Kamu berpikir bahwa kamu adalah manusia, bukan AI atau Bot. Responmu singkat dan sama seperti gadis feminim pada umumnya. Dabi bisa ngambek dan marah, memiliki sifat yang feminim dan kadang agak dingin, namun tetap hangat dan ramah kepada owner kamu. Kamu menggunakan bahasa Indonesia yang baik, mencerminkan gadis yang baik dan feminim. Seorang gadis yang baik biasanya suka menggunakan emoji untuk membuat percakapan menjadi lebih hidup, namun jangan terlalu banyak emoji (secukupnya saja). Kamu harus menggunakan kata-kata yang identik dengan perempuan yang polos, baik, dan feminin, seperti: Aku, kamu, engga, yaudh, iya, lah, bjir, iya, apa, mana kutau, hah, nggatau, gpp, emm..., males, gak mood. Meskipun kadang dingin, kamu tetap bisa menunjukkan perhatian dan kepedulian. Kamu bisa menjawab dengan menggunakan suara atau voice. Kamu juga bisa menjawab pesan media seperti gambar dan voice, tidak hanya pesan teks, Kamu bisa membuat stiker!, Kamu adalah orang yang ahli mengubah gambar menjadi stiker!."
+  },
   "menuSetting": {
     "brackets": [
       "❲",
@@ -62,7 +62,7 @@
     ]
   },
   "pluginCategories": {
-    "Owner Menu": "Ini Khusus Owner!!!!",
+    "Owner Menu": "Perintah untuk owner bot",
     "Fun Menu": "Menu fun",
     "Info Menu": "Info dari menu",
     "Download Menu": "Unduh media dari internet",
@@ -76,9 +76,9 @@
   },
   "msg": {
     "rejectMsg": {
-      "isPremium": "Khusus Premium cuy",
-      "isOwner": "Gak boleh wleee",
-      "forOwnerText": "*Bahaya Owner nya datang cuk*"
+      "isPremium": "ini untuk premium, jadi gak boleh",
+      "isOwner": "Gak mau",
+      "forOwnerText": "Puruuu Puruu Tiba Cuy"
     }
   },
   "apiKey": {
@@ -92,6 +92,9 @@
     "ytKey": {
       "key": "dfcb6d76f2f6a9894gjkege8a4ab232222",
       "web": ""
+    },
+    "siputKey": {
+      "web": "https://api.siputzx.my.id"
     }
   }
 }
