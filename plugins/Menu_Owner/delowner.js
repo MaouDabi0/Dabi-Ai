@@ -34,7 +34,7 @@ module.exports = {
       return conn.sendMessage(chatId, { text: 'Masukkan nomor owner yang ingin dihapus' }, { quoted: message });
     }
 
-    const number = await colNumb(rawInput);
+    const number = await calNumber(rawInput);
     const index = config.ownerSetting.ownerNumber.indexOf(number);
     if (index === -1) {
       return conn.sendMessage(chatId, { text: 'Nomor tidak ditemukan dalam daftar owner' }, { quoted: message });
