@@ -59,6 +59,7 @@ global.gcFilter = emtData.gcFilter;
 global.calNumber = emtData.colNumb;
 global.bdWrd = emtData.bdWord;
 global.afkCencel = emtData.afkCencel;
+global.afkTgR = emtData.afkTgR;
 
 Object.assign(global, {
     target: Sys.target,

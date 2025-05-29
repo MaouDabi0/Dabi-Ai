@@ -29,16 +29,6 @@ let counter = 0;
 
 setInterval(() => {
   const db = readDB();
-
-  Object.keys(db.Private).forEach((key) => {
-    const user = db.Private[key];
-    if (user.afk && typeof user.afk.afkTime === 'number') {
-      if (user.afk.Afk === true) {
-        user.afk.afkTime += 1000;
-      }
-    }
-  });
-
   if (counter % 60 === 0) {
     Object.keys(db.Private).forEach((key) => {
       const user = db.Private[key];
@@ -264,6 +254,7 @@ const startBot = async () => {
       }
 
       await afkCencel(senderId, chatId, message, conn);
+      await afkTgR(message, conn);
 
       if (await global.chtEmt(textMessage, message, senderId, chatId, conn)) return;
 
@@ -351,10 +342,10 @@ const startBot = async () => {
 
     conn.ev.on('creds.update', saveCreds);
 
-      } catch (error) {
+  } catch (error) {
         console.error(chalk.red('❌ Error saat menjalankan bot:'), error);
-      }
-    };
+  }
+};
 
 console.log(chalk.cyan.bold('Create By Dabi\n'));
 loadPlug();

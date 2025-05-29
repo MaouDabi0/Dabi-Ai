@@ -224,10 +224,10 @@ const chkOwner = async (plugin, conn, message) => {
 };
 
 const chkPrem = async (plugin, conn, message) => {
-  if (plugin.premium) {
+  if (plugin.isPremium) {
     const { chatId, senderId } = getSenderId(message);
     const user = global.getUserData(senderId);
-    if (!user?.premium?.prem) {
+    if (!user?.isPremium?.isPrem) {
       await conn.sendMessage(chatId, { text: prem }, { quoted: message });
       return false;
     }
