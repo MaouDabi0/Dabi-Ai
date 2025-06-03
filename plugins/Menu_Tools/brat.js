@@ -10,69 +10,130 @@ module.exports = {
   desc: 'Membuat stiker brat',
   prefix: true,
 
-  run: async (conn, message, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
-  }) => {
+  run: async (conn, message, { chatInfo, textMessage, prefix, commandText, args }) => {
     const { chatId } = chatInfo;
     if (!args.length) {
-      return conn.sendMessage(chatId, { 
-        text: `Masukkan teks untuk ${commandText === "bratvid" ? "Brat Video" : "Brat Sticker"}!` 
-      }, { quoted: message });
+      return conn.sendMessage(chatId, { text: `Masukkan teks untuk ${commandText === "bratvid" ? "Brat Video" : "Brat Sticker"}!` }, { quoted: message });
     }
 
     const isVideo = commandText === "bratvid";
-    const baseUrl = isVideo 
-      ? "https://api.hamsoffc.me/tools/bratvid"
-      : "https://api.hamsoffc.me/tools/brat";
-    
-    const bratUrl = `${baseUrl}?apikey=DabiKey&text=${encodeURIComponent(args.join(" "))}`;
+    let inputPath;
+    let outputPath;
+    let framePaths = [];
 
     try {
-      const response = await axios.get(bratUrl, { 
-        responseType: "arraybuffer",
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-          "Accept": isVideo ? "video/mp4" : "image/png"
+      await conn.sendMessage(chatId, { text: `Sedang memproses ${isVideo ? "video" : "stiker"}, mohon tunggu...` }, { quoted: message });
+
+      const tempDir = path.join(__dirname, "../../temp");
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+      if (isVideo) {
+        const words = args.join(" ").split(/\s+/);
+        const phrases = [];
+        for (let i = 1; i <= words.length; i++) {
+          phrases.push(words.slice(0, i).join(" "));
         }
-      });
 
-      if (!response.data) {
-        return conn.sendMessage(chatId, { text: `Gagal mengambil ${isVideo ? "Brat Video" : "Brat Sticker"}. Coba lagi nanti.` }, { quoted: message });
-      }
+        for (let i = 0; i < phrases.length; i++) {
+          const phrase = phrases[i];
+          const response = await axios.get(`https://nirkyy-dev.hf.space/api/v1/brat?text=${encodeURIComponent(phrase)}`, {
+            responseType: "arraybuffer",
+            headers: {
+              "User-Agent": "Mozilla/5.0",
+              "Accept": "image/png"
+            },
+            timeout: 30000
+          });
+          if (!response.data || response.data.length === 0) {
+            throw new Error("Gagal mengambil gambar dari API NirKyy Dev");
+          }
+          const framePath = path.join(tempDir, `brat_frame_${i}.png`);
+          fs.writeFileSync(framePath, response.data);
+          framePaths.push(framePath);
+        }
 
-      const inputExt = isVideo ? "mp4" : "png";
-      const inputPath = path.join(__dirname, `../../temp/brat.${inputExt}`);
-      const outputPath = path.join(__dirname, "../../temp/brat.webp");
-      fs.writeFileSync(inputPath, response.data);
+        outputPath = path.join(tempDir, `brat_output_${Date.now()}.webp`);
+        const ffmpegCmd = `ffmpeg -framerate 1/0.5 -i "${path.join(tempDir, "brat_frame_%d.png")}" -vf "scale=512:512:force_original_aspect_ratio=decrease" -c:v libwebp -loop 0 -lossless 0 -q:v 80 -preset default -an -y "${outputPath}"`;
+        //Ubah kecepatan di -framerate 1/0.3 ini berarti 300milidetik 
+        await new Promise((resolve, reject) => {
+          exec(ffmpegCmd, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(stderr || error.message));
+              return;
+            }
+            resolve();
+          });
+        });
 
-      const ffmpegCmd = isVideo
-        ? `ffmpeg -i ${inputPath} -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -c:v libwebp -loop 0 -preset default -an -vsync 0 ${outputPath}`
-        : `ffmpeg -i ${inputPath} -vf "scale=512:512:force_original_aspect_ratio=decrease" -c:v libwebp -lossless 1 ${outputPath}`;
-
-      exec(ffmpegCmd, async (error) => {
-        if (error) {
-          console.error("Error converting to WebP:", error);
-          return conn.sendMessage(chatId, { 
-            text: `Gagal mengubah ${isVideo ? "video" : "gambar"} ke stiker.` 
-          }, { quoted: message });
+        if (!fs.existsSync(outputPath)) {
+          throw new Error("File output tidak ditemukan setelah konversi");
         }
 
         const stickerBuffer = fs.readFileSync(outputPath);
+        const MAX_SIZE = 500 * 1024;
+        if (stickerBuffer.length > MAX_SIZE) {
+          throw new Error(`Ukuran sticker terlalu besar (${Math.round(stickerBuffer.length / 1024)}KB). Maksimal: ${MAX_SIZE / 1024}KB`);
+        }
+
         await conn.sendMessage(chatId, { sticker: stickerBuffer }, { quoted: message });
+      } else {
+        const apiUrl = "https://nirkyy-dev.hf.space/api/v1/brat";
+        const queryUrl = `${apiUrl}?text=${encodeURIComponent(args.join(" "))}`;
 
-        fs.unlinkSync(inputPath);
-        fs.unlinkSync(outputPath);
-      });
+        inputPath = path.join(tempDir, `brat_input_${Date.now()}.png`);
+        outputPath = path.join(tempDir, `brat_output_${Date.now()}.webp`);
 
+        const response = await axios.get(queryUrl, {
+          responseType: "arraybuffer",
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "image/png"
+          },
+          timeout: 30000
+        });
+
+        if (!response.data || response.data.length === 0) {
+          return conn.sendMessage(chatId, { text: `Gagal mengambil Brat Sticker. Data kosong.` }, { quoted: message });
+        }
+
+        fs.writeFileSync(inputPath, response.data);
+
+        const ffmpegCmd = `ffmpeg -i "${inputPath}" -vf "scale=512:512:force_original_aspect_ratio=decrease" -c:v libwebp -lossless 0 -q:v 80 -y "${outputPath}"`;
+
+        await new Promise((resolve, reject) => {
+          exec(ffmpegCmd, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(stderr || error.message));
+              return;
+            }
+            resolve();
+          });
+        });
+
+        if (!fs.existsSync(outputPath)) {
+          throw new Error("File output tidak ditemukan setelah konversi");
+        }
+
+        const stickerBuffer = fs.readFileSync(outputPath);
+        const MAX_SIZE = 100 * 1024;
+        if (stickerBuffer.length > MAX_SIZE) {
+          throw new Error(`Ukuran sticker terlalu besar (${Math.round(stickerBuffer.length / 1024)}KB). Maksimal: ${MAX_SIZE / 1024}KB`);
+        }
+
+        await conn.sendMessage(chatId, { sticker: stickerBuffer }, { quoted: message });
+      }
     } catch (error) {
-      console.error(`Error fetching ${isVideo ? "Brat Video" : "Brat Sticker"}:`, error);
-      await conn.sendMessage(chatId, { 
-        text: `Gagal mengambil ${isVideo ? "Brat Video" : "Brat Sticker"}. Coba lagi nanti.` 
-      }, { quoted: message });
+      await conn.sendMessage(chatId, { text: `❌ Gagal membuat sticker:\n${error.message || "Terjadi kesalahan internal"}` }, { quoted: message });
+    } finally {
+      try {
+        if (inputPath && fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+        if (outputPath && fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        for (const fp of framePaths) {
+          if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
+      } catch (cleanError) {
+        console.error("Error membersihkan file sementara:", cleanError);
+      }
     }
   }
 };
