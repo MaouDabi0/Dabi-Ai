@@ -6,6 +6,7 @@ export default {
   tags: 'Download Menu',
   desc: 'Mendownload lagu dari YouTube',
   prefix: true,
+  owner: false,
   premium: false,
 
   run: async (conn, msg, {
