@@ -1,1 +1,33 @@
-function _0x1cd3(){const _0x2c2417=['4852991AJyEVz','author','26NhWbWN','url','Gagal\x20mengambil\x20data\x20dari\x20API.','6245vDQqaJ','Terjadi\x20kesalahan\x20saat\x20mengambil\x20data\x20musik.','filename','string','quality','4776mTLbCf','68229GQkSxw','550ZheRTO','136mPgkeS','290wlhAyw','get','name','title','30147dqqoUx','Query\x20kosong!\x20Masukkan\x20judul\x20lagu\x20atau\x20nama\x20video\x20YouTube.','result','thumbnail','1548592xxZkDC','2189264DacAiX','status'];_0x1cd3=function(){return _0x2c2417;};return _0x1cd3();}function _0x36c5(_0x11fced,_0x5ee94e){const _0x1cd30d=_0x1cd3();return _0x36c5=function(_0x36c59f,_0x56dea5){_0x36c59f=_0x36c59f-0x165;let _0x69aaab=_0x1cd30d[_0x36c59f];return _0x69aaab;},_0x36c5(_0x11fced,_0x5ee94e);}(function(_0x146627,_0x1fa6eb){const _0x2a35a2=_0x36c5,_0x94ffd2=_0x146627();while(!![]){try{const _0x356dd6=-parseInt(_0x2a35a2(0x16d))/0x1*(parseInt(_0x2a35a2(0x16a))/0x2)+parseInt(_0x2a35a2(0x17a))/0x3*(parseInt(_0x2a35a2(0x175))/0x4)+parseInt(_0x2a35a2(0x174))/0x5*(parseInt(_0x2a35a2(0x172))/0x6)+parseInt(_0x2a35a2(0x166))/0x7+parseInt(_0x2a35a2(0x165))/0x8+-parseInt(_0x2a35a2(0x173))/0x9*(parseInt(_0x2a35a2(0x176))/0xa)+-parseInt(_0x2a35a2(0x168))/0xb;if(_0x356dd6===_0x1fa6eb)break;else _0x94ffd2['push'](_0x94ffd2['shift']());}catch(_0x87009f){_0x94ffd2['push'](_0x94ffd2['shift']());}}}(_0x1cd3,0x2f339));import _0x3cf164 from'axios';async function play(_0x518c55){const _0x4b5d74=_0x36c5;try{if(!_0x518c55)throw _0x4b5d74(0x17b);const _0x3af5d7='https://api.vreden.my.id/api/ytplaymp3?query='+encodeURIComponent(_0x518c55),{data:_0x175fb3}=await _0x3cf164[_0x4b5d74(0x177)](_0x3af5d7);if(_0x175fb3[_0x4b5d74(0x167)]!==0xc8||!_0x175fb3[_0x4b5d74(0x17c)]?.[_0x4b5d74(0x167)])throw _0x4b5d74(0x16c);const {metadata:_0x2844a3,download:_0x4d6459}=_0x175fb3['result'];return{'title':_0x2844a3[_0x4b5d74(0x179)],'author':_0x2844a3[_0x4b5d74(0x169)][_0x4b5d74(0x178)],'duration':_0x2844a3['timestamp'],'url':_0x2844a3['url'],'image':_0x2844a3[_0x4b5d74(0x17d)],'audio':{'url':_0x4d6459[_0x4b5d74(0x16b)],'quality':_0x4d6459[_0x4b5d74(0x171)],'filename':_0x4d6459[_0x4b5d74(0x16f)]}};}catch(_0x5c67fe){throw typeof _0x5c67fe===_0x4b5d74(0x170)?_0x5c67fe:_0x4b5d74(0x16e);}}export default play;
+import axios from 'axios';
+
+async function play(query) {
+  try {
+    if (!query) throw 'Query kosong! Masukkan judul lagu atau nama video YouTube.';
+
+    const url = `https://api.vreden.my.id/api/v1/download/play/audio?query=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(url);
+
+    if (!data.status || data.status_code !== 200 || !data.result?.status) {
+      throw 'Gagal mengambil data dari API.';
+    }
+
+    const { metadata, download } = data.result;
+
+    return {
+      title: metadata.title,
+      author: metadata.author?.name || 'Unknown',
+      duration: metadata.duration?.timestamp || metadata.timestamp,
+      url: metadata.url,
+      image: metadata.thumbnail || metadata.image,
+      audio: {
+        url: download.url,
+        quality: download.quality,
+        filename: download.filename
+      }
+    };
+  } catch (err) {
+    throw typeof err === 'string' ? err : 'Terjadi kesalahan saat mengambil data musik.';
+  }
+}
+
+export default play;
