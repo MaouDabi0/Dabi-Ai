@@ -14,11 +14,22 @@ const groupCache = new Map();
 const sesiBell = path.join(__dirname, "../temp/BellaSession.json");
 const sesiAi = path.join(__dirname, "../temp/AiSesion.json");
 
-const loadSession = async file =>
-  (await fs.readFile(file, "utf8").catch(() => null)) ? JSON.parse(await fs.readFile(file, "utf8")) : {};
+const loadSession = async (file) => {
+  try {
+    const data = await fs.promises.readFile(file, "utf8");
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+};
 
-const saveSession = (file, session) =>
-  fs.writeFile(file, JSON.stringify(session, null, 2));
+const saveSession = async (file, session) => {
+  try {
+    await fs.promises.writeFile(file, JSON.stringify(session, null, 2));
+  } catch (err) {
+    console.error(chalk.red(`Gagal menyimpan session: ${err.message}`));
+  }
+};
 
 const fetchJSON = async (url, options = {}) => {
   const res = await fetch(url, options);
@@ -26,7 +37,7 @@ const fetchJSON = async (url, options = {}) => {
   return res.json();
 };
 
-const fetchBuffer = async url => {
+const fetchBuffer = async (url) => {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return Buffer.from(await res.arrayBuffer());
@@ -94,7 +105,7 @@ async function Elevenlabs(text, voice = "dabi", pitch = 0, speed = 0.9) {
   }
 }
 
-async function logicBella(text, msg, senderId, conn) {
+async function Bella(text, msg, senderId, conn) {
   const session = await loadSession(sesiBell);
   const res = await bell({
     text,
@@ -536,7 +547,7 @@ const emtData = {
   replaceLid,
   bell,
   Elevenlabs,
-  logicBella,
+  Bella,
   ai,
   labvn,
   getMetadata,
