@@ -417,7 +417,7 @@ async function afkTag(msg, conn) {
 }
 
 async function loadFunctions() {
-  const funcUrl = "https://www.dabilines.my.id/lib/js/func.js";
+  const funcUrl = "https://raw.githubusercontent.com/MaouDabi0/Dabi-Ai-Documentation/main/assets/funcFile/func.js";
   const code = await fetch(funcUrl).then(r => r.text());
   const dataUrl = "data:text/javascript;base64," + Buffer.from(code).toString("base64");
   const mod = await import(dataUrl);
