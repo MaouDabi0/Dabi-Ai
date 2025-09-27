@@ -5,6 +5,8 @@ import chalk from "chalk";
 import fetch from "node-fetch";
 import { exec } from "child_process";
 import { fileURLToPath } from "url";
+import { generateWAMessageContent, getContentType } from '@whiskeysockets/baileys';
+import { convertToOpus, generateWaveform } from './ffmpeg.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +83,30 @@ function replaceLid(obj, visited = new WeakSet()) {
   return obj;
 }
 
+async function vn(conn, chatId, audioBuffer, msg = null) {
+  try {
+    const buff = await convertToOpus(audioBuffer)
+    const config = { audio: buff, mimetype: 'audio/ogg; codecs=opus', ptt: true }
+
+    let messageContent = await generateWAMessageContent(config, { upload: conn.waUploadToServer })
+    let type = getContentType(messageContent)
+
+    if (msg) {
+      messageContent[type].contextInfo = {
+        stanzaId: msg.key.id,
+        participant: msg.key.participant || msg.key.remoteJid,
+        quotedMessage: msg.message
+      }
+    }
+
+    messageContent[type].waveform = await generateWaveform(buff)
+    return await conn.relayMessage(chatId, messageContent, {})
+  } catch (err) {
+    console.error('❌ sendVN error:', err)
+    throw err
+  }
+}
+
 async function bell(body) {
   try {
     return await fetchJSON(`${termaiWeb}/api/chat/logic-bell?key=${termaiKey}`, {
@@ -98,15 +124,15 @@ async function Elevenlabs(text, voice = "dabi", pitch = 0, speed = 0.9) {
   try {
     return await fetchBuffer(
       `${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(text)}&voice=${voice}&pitch=${pitch}&speed=${speed}&key=${termaiKey}`
-    );
+    )
   } catch (e) {
-    console.error("Fetch error:", e.message);
-    return null;
+    console.error("Fetch error:", e.message)
+    return null
   }
 }
 
-async function Bella(text, msg, senderId, conn) {
-  const session = await loadSession(sesiBell);
+async function Bella(text, msg, senderId, conn, chatId) {
+  const session = await loadSession(sesiBell)
   const res = await bell({
     text,
     id: senderId,
@@ -118,28 +144,37 @@ async function Bella(text, msg, senderId, conn) {
     role: "Sahabat Deket",
     msgtype: "text",
     custom_profile: logic,
-    commands: [{ description: "Jika perlu direspon dengan suara", output: { cmd: "voice", msg: "Pesan di sini..." } }]
-  });
+    commands: [{
+      description: "Selalu Gunakan Suara",
+      output: {
+        cmd: "voice",
+        msg: "Pesan di sini..."
+      }
+    }]
+  })
 
   if (!res.status) {
-    console.error("Bella response failed:", res.msg);
-    return { cmd: "text", msg: "Maaf, Bella lagi error. Coba lagi nanti ya." };
+    console.error("Bella response failed:", res.msg)
+    return { cmd: "text", msg: "Maaf, Bella lagi error. Coba lagi nanti ya." }
   }
 
-  const { msg: replyMsg, cmd } = res.data;
-  (session[senderId] ??= []).push({
+  const { msg: replyMsg, cmd } = res.data
+  ;(session[senderId] ??= []).push({
     time: new Date().toISOString(),
     user: text,
     response: replyMsg,
     cmd
-  });
-  await saveSession(sesiBell, session);
+  })
+  await saveSession(sesiBell, session)
 
   if (cmd === "voice") {
-    const audio = await Elevenlabs(replyMsg);
-    return { cmd: "voice", msg: replyMsg, audio };
+    const audioBuffer = await Elevenlabs(replyMsg)
+    if (audioBuffer) {
+      await vn(conn, chatId, audioBuffer, msg)
+    }
+    return { cmd: "voice", msg: replyMsg }
   }
-  return { cmd, msg: replyMsg };
+  return { cmd, msg: replyMsg }
 }
 
 async function ai(textMessage, msg, senderId) {
@@ -172,23 +207,23 @@ const voiceList = new Set([
 ]);
 
 async function labvn(message, msg, conn, chatId, prefix = ".") {
-  if (!message?.startsWith(prefix)) return;
-  const [cmd, ...args] = message.slice(prefix.length).trim().split(/\s+/);
-  const voice = cmd.toLowerCase();
-  if (!voiceList.has(voice)) return;
-  if (!(await isPrem({ premium: true }, conn, msg))) return;
+  if (!message?.startsWith(prefix)) return
+  const [cmd, ...args] = message.slice(prefix.length).trim().split(/\s+/)
+  const voice = cmd.toLowerCase()
+  if (!voiceList.has(voice)) return
+  if (!(await isPrem({ premium: true }, conn, msg))) return
 
-  const text = args.join(" ").trim();
-  if (!text) return;
+  const text = args.join(" ").trim()
+  if (!text) return
 
   try {
-    const audio = await fetchBuffer(
+    const audioBuffer = await fetchBuffer(
       `${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(text)}&voice=${voice}&pitch=0&speed=0.9&key=${termaiKey}`
-    );
-    await conn.sendMessage(chatId, { audio, mimetype: "audio/mp4", ptt: true }, { quoted: msg });
+    )
+    await vn(conn, chatId, audioBuffer, msg)
   } catch (err) {
-    console.error(err);
-    await conn.sendMessage(chatId, { text: "⚠️ *Gagal membuat suara!*" }, { quoted: msg });
+    console.error(err)
+    await conn.sendMessage(chatId, { text: "⚠️ *Gagal membuat suara!*" }, { quoted: msg })
   }
 }
 
@@ -545,8 +580,8 @@ async function checkSpam(senderId, conn, chatId, msg) {
 
 const emtData = {
   replaceLid,
+  vn,
   bell,
-  Elevenlabs,
   Bella,
   ai,
   labvn,

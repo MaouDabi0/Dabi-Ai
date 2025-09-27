@@ -45,6 +45,7 @@ Object.assign(global, {
   rctKey,
   autoBio: setting.botSetting.autoBio,
   autoTyping: setting.botSetting.autoTyping,
+  autoBackup: setting.botSetting.autoBackup,
   baileys: Object.keys(packageJson.dependencies).find(dep => dep.includes('baileys')),
   bioText: setting.botSetting.bioText,
   body: setting.menuSetting.frame.body,
