@@ -12,7 +12,7 @@ import { Boom } from "@hapi/boom";
 import { makeWASocket, useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
 import { fileURLToPath } from "url";
 
-import globalSetting from "./toolkit/setting.js";
+import stg from "./toolkit/setting.js";
 import makeInMemoryStore from "./toolkit/store.js";
 import Cc from "./session/setCfg.js";
 import { cekSholat } from "./toolkit/pengingat.js";
@@ -22,7 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const { reset, timer, labvn, saveLidCache, messageContent, checkSpam } = emtData;
-const { isPrefix } = globalSetting;
+const { isPrefix } = stg;
 
 const logger = pino({ level: "silent" });
 const store = makeInMemoryStore();
@@ -35,39 +35,43 @@ global.lidCache = {};
 global.initDB();
 
 setInterval(async () => {
-  const now = Date.now();
-  const db = getDB();
+  const now = Date.now()
+  const db = getDB()
 
   for (const u of Object.values(db.Private)) {
-    const prem = u.isPremium;
-    if (prem?.isPrem && (prem.time = Math.max(prem.time - 60000, 0)) === 0) {
-      prem.isPrem = false;
-    }
+    const prem = u.isPremium
+    if (prem?.isPrem && (prem.time = Math.max(prem.time - 60000, 0)) === 0) prem.isPrem = false
   }
 
   for (const g of Object.values(db.Grup || {})) {
-    const gf = g.gbFilter || {};
-    for (const [type, mode] of Object.entries({
-      closeTime: "announcement",
-      openTime: "not_announcement",
-    })) {
-      const t = gf[type];
+    const gf = g.gbFilter || {}
+    for (const [type, mode] of Object.entries({ closeTime: "announcement", openTime: "not_announcement" })) {
+      const t = gf[type]
       if (t?.active && now >= t.until) {
         try {
-          await conn.groupSettingUpdate(g.Id, mode);
-          delete gf[type];
-          await conn.sendMessage(g.Id, {
-            text: `✅ Grup telah *di${mode === "announcement" ? "tutup" : "buka"}* otomatis.`,
-          });
-        } catch (e) {
-          console.error(`❌ Gagal update grup: ${g.Id}`, e);
+          await conn.groupSettingUpdate(g.Id, mode)
+          delete gf[type]
+          await conn.sendMessage(g.Id, { text: `✅ Grup telah *di${mode === "announcement" ? "tutup" : "buka"}* otomatis.` })
+        } catch (err) {
+          console.error(`[AutoGroup] Error update setting:`, err)
         }
       }
     }
   }
 
-  saveDB();
-}, 60000);
+  saveDB()
+
+  if (global.autoBackup && now % (24 * 60 * 60 * 1000) < 60000) {
+    try {
+      const { default: backup } = await import(`./plugins/owner/backup.js?update=${Date.now()}`)
+      const owners = (Array.isArray(global.ownerNumber) ? global.ownerNumber : [global.ownerNumber])
+        .map(n => n.replace(/\D/g, "") + "@s.whatsapp.net")
+      await backup.run(conn, {}, { chatInfo: { chatId: owners[0] } })
+    } catch (err) {
+      console.error("[AutoBackup] Error:", err)
+    }
+  }
+}, 60000)
 
 const mute = async (chatId, senderId, conn) => {
   const groupData = getGc(chatId);
