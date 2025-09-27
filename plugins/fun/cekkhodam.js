@@ -38,9 +38,9 @@ export default {
         mentions: [`${targetId}@s.whatsapp.net`]
       }, { quoted: msg });
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error pada cekKhodam:', error);
       conn.sendMessage(msg.key.remoteJid, {
-        text: `Error: ${error.message || error}`,
+        text: `Error pada cekKhodam: ${error.message || error}`,
         quoted: msg,
       });
     }
