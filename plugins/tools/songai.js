@@ -3,7 +3,7 @@ import { songAiStream } from '../../toolkit/scrape/songai.js';
 export default {
   name: 'Song AI',
   command: ['songai'],
-  tags: 'AI Tools',
+  tags: 'Tools Menu',
   desc: 'Buat lagu dengan AI berdasarkan prompt',
   prefix: true,
   owner: false,
