@@ -1,10 +1,6 @@
 import fs from "fs";
 import path from "path";
 import AdmZip from "adm-zip";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export default {
   name: "backup",
@@ -18,9 +14,9 @@ export default {
     const { chatId } = chatInfo;
     const botName = global.botName.replace(/\s+/g, "_");
     const vers = global.version.replace(/\s+/g, ".");
-    const zipName = `${botName}-${vers}.zip`;
+    const zipName = `${botName}-${vers}(${time}).zip`;
 
-    const tempFolder = path.join(__dirname, "../../temp");
+    const tempFolder = path.join(global.__dirname, "../../temp");
     if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
 
     const zipPath = path.join(tempFolder, zipName);
@@ -38,7 +34,8 @@ export default {
       ];
 
       for (const item of files) {
-        const fullPath = path.join(__dirname, "../../", item);
+        const fullPath = path.join(global.__dirname, "../", item);
+        console.log(fullPath)
         if (fs.existsSync(fullPath)) {
           const isDir = fs.lstatSync(fullPath).isDirectory();
           isDir ? zip.addLocalFolder(fullPath, item) : zip.addLocalFile(fullPath);
@@ -55,7 +52,7 @@ export default {
           fileName: zipName,
           caption: `Backup berhasil dibuat.\nNama file: ${zipName}`
         },
-        { quoted: msg }
+        msg && msg.key ? { quoted: msg } : {}
       );
 
       setTimeout(() => {
