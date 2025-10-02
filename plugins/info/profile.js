@@ -20,16 +20,16 @@ export default {
       const db = getDB();
       const userEntry = getUser(mention);
 
-      const user = userEntry?.value;
-      const username = userEntry?.key;
-
-      if (!user) {
+      if (!userEntry) {
         return conn.sendMessage(
           chatId,
           { text: `Kamu belum terdaftar di database!\n\nKetik ${prefix}daftar untuk mendaftar.` },
           { quoted: msg }
         );
       }
+
+      const user = userEntry.data;
+      const username = userEntry.key;
 
       if (commandText.toLowerCase() === "claim") {
         const result = await claimTrial(mention);
