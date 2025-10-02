@@ -270,6 +270,7 @@ const startBot = async () => {
 
       const runPlugin = async (parsed, prefixUsed) => {
         const { commandText, chatInfo } = parsed;
+
         for (const [fileName, plugin] of Object.entries(global.plugins)) {
           if (!plugin?.command?.includes(commandText)) continue;
 
@@ -278,14 +279,17 @@ const startBot = async () => {
             if (await checkSpam(chatInfo.senderId, conn, chatInfo.chatId)) return;
           }
 
-          const userData = getUser(getDB(), chatInfo.senderId);
+          const userData = getUser(chatInfo.senderId);
 
-          if ((plugin.premium && !(await global.isPrem(plugin, conn, msg))) ||
-              (plugin.owner && !(await global.isOwner(plugin, conn, msg)))) continue;
+          if (
+            (plugin.premium && !(await global.isPrem(plugin, conn, msg))) ||
+            (plugin.owner && !(await global.isOwner(plugin, conn, msg)))
+          ) continue;
 
-          const allowRun = plugin.prefix === "both" ||
-                           (plugin.prefix === false && !prefixUsed) ||
-                           ((plugin.prefix !== false && plugin.prefix !== "both") && prefixUsed);
+          const allowRun =
+            plugin.prefix === "both" ||
+            (plugin.prefix === false && !prefixUsed) ||
+            ((plugin.prefix !== false && plugin.prefix !== "both") && prefixUsed);
 
           if (!allowRun) continue;
 
@@ -293,8 +297,8 @@ const startBot = async () => {
             await plugin.run(conn, msg, { ...parsed, isPrefix, store });
 
             if (userData) {
-              db.Private[userData.key].cmd = (db.Private[userData.key].cmd || 0) + 1;
-              saveDB(db);
+              userData.data.cmd = (userData.data.cmd || 0) + 1;
+              saveDB(getDB());
             }
           } catch (err) {
             console.log(chalk.redBright.bold(`❌ Error plugin: ${fileName}\n${err.stack}`));
