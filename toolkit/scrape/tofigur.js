@@ -1,11 +1,11 @@
 import axios from "axios";
 import FormData from "form-data";
-import { fileTypeFromBuffer } from "file-type";
+import fileType from "file-type";
 
 const api = axios.create({ timeout: 20000 });
 
 export async function uploadImage(buffer) {
-  const { ext } = await fileTypeFromBuffer(buffer);
+  const { ext } = await fileType.fromBuffer(buffer);
   const form = new FormData();
   form.append("fileToUpload", buffer, `file.${ext}`);
   form.append("reqtype", "fileupload");
