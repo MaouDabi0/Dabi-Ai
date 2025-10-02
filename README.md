@@ -6,7 +6,7 @@
 
 - - -
 
-## Hi Everyone
+## Hi Everyone tes
    Hari yang menyenangkan teman-teman. Kali ini saya akan memberikan sebuah informasi tentang Script Dabi-Ai ini, ini adalah sebuah Script Dabi-Ai/Base Bot WhatsApp,  dalam rangkaian kali ini saya benar-benar berterima kasih kepada kalian yang menggunakan Script ini.
 
    Tentu saja Script ini bisa terhubung dengan akun/nomor WhatsApp anda, Berikut adalah beberapa spesifikasi tentang Script Dabi-Ai ini:
