@@ -260,7 +260,7 @@ const getDBFlag = (userId, chatId, key) => {
 };
 
 const chtEmt = async (txt, msg, userId, chatId, conn) => {
-  const botId = conn.user?.id?.split(':')[0] + '@s.whatsapp.net';
+  const botId   = conn.user?.id?.split(':')[0] + '@s.whatsapp.net';
   const botName = global.botName?.toLowerCase();
   const prefixes = [].concat(global.setting?.isPrefix || '.');
 
@@ -269,12 +269,13 @@ const chtEmt = async (txt, msg, userId, chatId, conn) => {
 
   const ctx = msg.message?.extendedTextMessage?.contextInfo ?? {};
   const { mentionedJid = [], participant = '' } = ctx;
-  const isReplyBot = participant === botId;
+
+  const isReplyBot   = participant === botId;
   const isMentionBot = mentionedJid.includes(botId);
 
   if (ctx && participant && !isReplyBot && !isMentionBot) return false;
 
-  const ai = getDBFlag(userId, chatId, 'autoai');
+  const ai   = getDBFlag(userId, chatId, 'autoai');
   const bell = getDBFlag(userId, chatId, 'bell');
   if (!ai && !bell) return false;
 
@@ -283,17 +284,26 @@ const chtEmt = async (txt, msg, userId, chatId, conn) => {
 
   if (ai) {
     const res = await global.ai(txt, msg, userId);
-    await conn.sendMessage(chatId, { text: res || 'Maaf, saya tidak mengerti.' }, { quoted: msg });
+    await conn.sendMessage(
+      chatId,
+      { text: res || 'Maaf, saya tidak mengerti.' },
+      { quoted: msg }
+    );
   }
 
   if (bell) {
-    const res = await Bella(txt, msg, userId);
+    const res = await Bella(txt, msg, userId, conn, chatId);
     if (res.cmd === 'voice' && res.audio) {
-      await conn.sendMessage(chatId, { audio: Buffer.from(res.audio), mimetype: 'audio/mpeg', ptt: true }, { quoted: msg });
+      await conn.sendMessage(
+        chatId,
+        { audio: Buffer.from(res.audio), mimetype: 'audio/mpeg', ptt: true },
+        { quoted: msg }
+      );
     } else if (res.msg) {
       await conn.sendMessage(chatId, { text: res.msg }, { quoted: msg });
     }
   }
+
   return true;
 };
 

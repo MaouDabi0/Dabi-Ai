@@ -44,23 +44,47 @@ export async function generateWaveform(inputBuffer, bars = 64) {
       .audioChannels(1)
       .audioFrequency(16000)
       .format("s16le")
-      .on("error", reject)
+      .on("error", err => reject(err))
       .on("end", () => {
         const rawData = Buffer.concat(chunks)
+
+        if (rawData.length === 0) {
+          return resolve(Buffer.from(new Uint8Array(bars).fill(64)).toString("base64"))
+        }
+
         const samples = rawData.length / 2
         const amplitudes = []
         for (let i = 0; i < samples; i++) {
           amplitudes.push(Math.abs(rawData.readInt16LE(i * 2)) / 32768)
         }
+
         const blockSize = Math.floor(amplitudes.length / bars)
+        if (blockSize === 0) {
+          return resolve(Buffer.from(new Uint8Array(bars).fill(64)).toString("base64"))
+        }
+
         const avg = []
         for (let i = 0; i < bars; i++) {
           let block = amplitudes.slice(i * blockSize, (i + 1) * blockSize)
-          avg.push(block.reduce((a, b) => a + b, 0) / block.length)
+          avg.push(block.reduce((a, b) => a + b, 0) / block.length || 0)
         }
-        const max = Math.max(...avg)
-        const normalized = avg.map(v => Math.floor((v / max) * 100))
-        resolve(Buffer.from(new Uint8Array(normalized)).toString("base64"))
+
+        let max = Math.max(...avg)
+
+        if (max < 0.5) {
+          const factor = 0.5 / (max || 0.01)
+          for (let i = 0; i < avg.length; i++) avg[i] *= factor
+          max = Math.max(...avg)
+        }
+
+        let normalized
+        if (max === 0) {
+          normalized = new Uint8Array(bars).fill(64)
+        } else {
+          normalized = avg.map(v => Math.min(127, Math.round((v / max) * 127)))
+        }
+
+        resolve(Buffer.from(normalized).toString("base64"))
       })
       .pipe()
       .on("data", chunk => chunks.push(chunk))

@@ -5,7 +5,6 @@ import chalk from "chalk";
 import fetch from "node-fetch";
 import { exec } from "child_process";
 import { fileURLToPath } from "url";
-import { generateWAMessageContent, getContentType } from '@whiskeysockets/baileys';
 import { convertToOpus, generateWaveform } from './ffmpeg.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -86,23 +85,25 @@ function replaceLid(obj, visited = new WeakSet()) {
 async function vn(conn, chatId, audioBuffer, msg = null) {
   try {
     const buff = await convertToOpus(audioBuffer)
-    const config = { audio: buff, mimetype: 'audio/ogg; codecs=opus', ptt: true }
+    const waveform = await generateWaveform(buff)
 
-    let messageContent = await generateWAMessageContent(config, { upload: conn.waUploadToServer })
-    let type = getContentType(messageContent)
+    const messageContent = {
+      audio: buff,
+      mimetype: 'audio/ogg; codecs=opus',
+      ptt: true,
+      waveform
+    }
 
     if (msg) {
-      messageContent[type].contextInfo = {
+      messageContent.contextInfo = {
         stanzaId: msg.key.id,
         participant: msg.key.participant || msg.key.remoteJid,
         quotedMessage: msg.message
       }
     }
 
-    messageContent[type].waveform = await generateWaveform(buff)
-    return await conn.relayMessage(chatId, messageContent, {})
+    return await conn.sendMessage(chatId, messageContent, { quoted: msg })
   } catch (err) {
-    console.error('❌ sendVN error:', err)
     throw err
   }
 }
@@ -132,6 +133,8 @@ async function Elevenlabs(text, voice = "dabi", pitch = 0, speed = 0.9) {
 }
 
 async function Bella(text, msg, senderId, conn, chatId) {
+  console.log("[DEBUG Bella] args:", { text, senderId, chatId, connType: typeof conn })
+
   const session = await loadSession(sesiBell)
   const res = await bell({
     text,
@@ -146,10 +149,7 @@ async function Bella(text, msg, senderId, conn, chatId) {
     custom_profile: logic,
     commands: [{
       description: "Selalu Gunakan Suara",
-      output: {
-        cmd: "voice",
-        msg: "Pesan di sini..."
-      }
+      output: { cmd: "voice", msg: "Pesan di sini..." }
     }]
   })
 
@@ -170,10 +170,12 @@ async function Bella(text, msg, senderId, conn, chatId) {
   if (cmd === "voice") {
     const audioBuffer = await Elevenlabs(replyMsg)
     if (audioBuffer) {
+      console.log("[DEBUG Bella] calling vn...")
       await vn(conn, chatId, audioBuffer, msg)
     }
     return { cmd: "voice", msg: replyMsg }
   }
+
   return { cmd, msg: replyMsg }
 }
 
@@ -342,15 +344,20 @@ async function claimTrial(senderId) {
   try {
     const user = getUser(senderId);
     if (!user) return { success: false, message: "Pengguna belum terdaftar.", claimable: false };
-    if (user.value.claim) return { success: false, message: "⚠️ Sudah pernah claim trial.", claimable: false };
 
-    const { key, db } = user;
+    if (user.data.claim) 
+      return { success: false, message: "⚠️ Sudah pernah claim trial.", claimable: false };
+
+    const { key, data } = user;
     const now = Date.now();
     const trialDuration = 3 * 24 * 60 * 60 * 1000;
-    const remainingPremium = db.Private[key].isPremium?.time || 0;
+    const remainingPremium = data.isPremium?.time || 0;
 
-    db.Private[key].isPremium = { isPrem: true, time: remainingPremium + trialDuration, activatedAt: now };
-    db.Private[key].claim = true;
+    data.isPremium = { isPrem: true, time: remainingPremium + trialDuration, activatedAt: now };
+    data.claim = true;
+
+    const db = getDB();
+    db.Private[key] = data;
     saveDB(db);
 
     return { success: true, message: "✅ Trial Premium 3 hari ditambahkan.", claimable: false };
