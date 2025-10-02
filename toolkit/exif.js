@@ -7,7 +7,7 @@ import webp from 'node-webpmux';
 import { exec } from 'child_process';
 import axios from 'axios';
 import { downloadContentFromMessage } from '@whiskeysockets/baileys';
-import { fileTypeFromBuffer } from 'file-type';
+import fileType from 'file-type';
 
 const tmpPath = (ext) => path.join(os.tmpdir(), `${randomBytes(6).readUIntLE(0, 6).toString(36)}.${ext}`);
 
@@ -41,18 +41,16 @@ export async function mediaMessage(msg, filename, attachExtension = true) {
     for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
     if (!buffer.length) throw new Error('Buffer kosong, media mungkin belum terunduh.');
 
-    const fileType = await fileTypeFromBuffer(buffer);
-    if (!fileType) throw new Error('Tidak bisa mendeteksi tipe file.');
+    const fileTypeResult = await fileType.fromBuffer(buffer);
+    if (!fileTypeResult) throw new Error('Tidak bisa mendeteksi tipe file.');
 
-    const trueFileName = attachExtension ? `${filename}.${fileType.ext}` : filename;
+    const trueFileName = attachExtension ? `${filename}.${fileTypeResult.ext}` : filename;
     fs.writeFileSync(trueFileName, buffer);
     return trueFileName;
   } catch (err) {
     throw new Error(`Gagal mengambil media: ${err.message}`);
   }
 }
-
-// --- fungsi lainnya tetap sama ---
 
 export function imageToWebp(media) {
   return new Promise((resolve, reject) => {

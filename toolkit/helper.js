@@ -88,10 +88,11 @@ const saveDB = () => {
 };
 
 const getUser = (id) => {
-  const { Private } = getDB();
+  const db = getDB();
+  const { Private } = db;
   if (!Private) return null;
   const key = Object.keys(Private).find(k => Private[k]?.Nomor === id);
-  return key ? { key, value: Private[key], db } : null;
+  return key ? { key, data: Private[key] } : null;
 };
 
 const getGc = (db, chatId) => db?.Grup && Object.values(db.Grup).find(g => String(g?.Id) === String(chatId)) || null;

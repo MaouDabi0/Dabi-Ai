@@ -265,55 +265,76 @@ async function isGroupLink(text) {
 
 async function groupFilter(conn, msg, chatId, senderId, isGroup) {
   if (!isGroup) return;
-
   try {
     const groupData = getGc(getDB(), chatId);
-    if (!groupData || !groupData.gbFilter) return;
+    if (!groupData?.gbFilter) return;
 
     const { userAdmin, botNumber } = await exGrup(conn, chatId, senderId);
-    const isFromBot = senderId === botNumber || msg.key?.fromMe;
-    if (userAdmin || isFromBot) return;
+    if (userAdmin || senderId === botNumber || msg.key?.fromMe) return;
 
-    let textMessage =
-      msg.message?.conversation ||
-      msg.message?.extendedTextMessage?.text ||
-      "";
-    const messageType = Object.keys(msg.message || {})[0];
-    const isTaggedStatus = Boolean(msg.message?.groupStatusMentionMessage);
+    let textMessage = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+    const keys = Object.keys(msg.message || {});
+    const type = keys.find(k => k !== "messageContextInfo") || keys[0];
+    const isTaggedStatus = !!msg.message?.groupStatusMentionMessage;
     if (isTaggedStatus) textMessage = "Grup ini disebut dalam status";
 
     const filters = [
-      { enabled: groupData.gbFilter?.link?.antilink, condition: await isGroupLink(textMessage), reason: "Link grup terdeteksi" },
-      { enabled: groupData.gbFilter?.stiker?.antistiker, condition: messageType === "stickerMessage", reason: "Stiker terdeteksi" },
       {
-        enabled: groupData.gbFilter?.antibot === true,
-        condition: (() => {
-          const context = msg.message?.contextInfo || {};
-          const forwardingScore = context.forwardingScore || 0;
-          const forwardedFromChannel = !!context.externalAdReply || context.forwardedNewsletterMessage != null;
-          const isForwarded = forwardingScore > 0 || forwardedFromChannel;
-          const hasMenuKeywords = /menu|owner|allmenu/i.test(textMessage);
-          const isDocument = messageType === "documentMessage";
-          return isForwarded || hasMenuKeywords || isDocument;
-        })(),
-        reason: "Deteksi konten mencurigakan",
+        enabled: !!groupData.gbFilter?.link?.antilink,
+        condition: await isGroupLink(textMessage),
+        reason: "Link grup terdeteksi"
       },
-      { enabled: groupData.gbFilter?.antiTagSw === true, condition: isTaggedStatus, reason: "Tag status terdeteksi" },
+      {
+        enabled: !!groupData.gbFilter?.stiker?.antistiker,
+        condition: type === "stickerMessage",
+        reason: "Stiker terdeteksi"
+      },
+      {
+        enabled: !!groupData.gbFilter?.antibot,
+        condition: (() => {
+          const c = msg.message?.contextInfo || {};
+          return (
+            c.forwardingScore > 0 ||
+            !!c.externalAdReply ||
+            c.forwardedNewsletterMessage != null ||
+            /menu|owner|allmenu/i.test(textMessage) ||
+            type === "documentMessage"
+          );
+        })(),
+        reason: "Deteksi konten mencurigakan"
+      },
+      {
+        enabled: !!groupData.gbFilter?.antiTagSw,
+        condition: isTaggedStatus,
+        reason: "Tag status terdeteksi"
+      }
     ];
 
-    for (const filter of filters) {
-      if (filter.enabled && filter.condition) {
+    for (const f of filters) {
+      if (f.enabled && f.condition) {
         await conn.sendMessage(
           chatId,
-          { text: `🚫 ${filter.reason} dari @${senderId.split("@")[0]}!\nPesan akan dihapus.`, mentions: [senderId] },
+          {
+            text: `🚫 ${f.reason} dari @${senderId.split("@")[0]}!\nPesan akan dihapus.`,
+            mentions: [senderId]
+          },
           { quoted: msg }
         );
-        await conn.sendMessage(chatId, { delete: msg.key });
+
+        await conn.sendMessage(chatId, {
+          delete: {
+            remoteJid: chatId,
+            fromMe: false,
+            id: msg.key.id,
+            participant: msg.key.participant || senderId
+          }
+        });
+
         return true;
       }
     }
-  } catch (error) {
-    console.error("Error in groupFilter:", error);
+  } catch (e) {
+    console.error("Error in groupFilter:", e);
   }
 }
 
@@ -494,7 +515,7 @@ function messageContent(msg) {
   const content = msg.message;
 
   if (content.groupStatusMentionMessage) {
-    mediaInfo = '[ Status Grup ]';
+    mediaInfo = 'Status Grup';
     textMessage = 'Grup ini disebut dalam status';
   }
 
