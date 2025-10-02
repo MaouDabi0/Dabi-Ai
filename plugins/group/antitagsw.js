@@ -30,8 +30,7 @@ export default {
       return conn.sendMessage(chatId, { text: `Penggunaan:\n${prefix}${commandText} <on/off>` }, { quoted: msg });
 
     groupData.gbFilter ??= {};
-    groupData.gbFilter.tagSw ??= {};
-    groupData.gbFilter.tagSw.antitagsw = input === 'on';
+    groupData.gbFilter.antiTagSw = input === 'on';
     saveDB();
 
     return conn.sendMessage(chatId, { text: `Fitur anti tag SW berhasil di-${input === 'on' ? 'aktifkan' : 'nonaktifkan'}.` }, { quoted: msg });
