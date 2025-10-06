@@ -260,51 +260,42 @@ const getDBFlag = (userId, chatId, key) => {
 };
 
 const chtEmt = async (txt, msg, userId, chatId, conn) => {
-  const botId   = conn.user?.id?.split(':')[0] + '@s.whatsapp.net';
-  const botName = global.botName?.toLowerCase();
-  const prefixes = [].concat(global.setting?.isPrefix || '.');
+  const botId = conn.user?.id?.split(':')[0] + '@s.whatsapp.net',
+        botName = global.botName?.toLowerCase(),
+        prefixes = [].concat(global.setting?.isPrefix || '.');
 
-  if (prefixes.some(p => txt?.startsWith(p))) return false;
-  if (userId === conn.user?.id || msg.key.fromMe) return false;
+  if (prefixes.some(p => txt?.startsWith(p))) return !1;
+  if (userId === conn.user?.id || msg.key.fromMe) return !1;
 
-  const ctx = msg.message?.extendedTextMessage?.contextInfo ?? {};
-  const { mentionedJid = [], participant = '' } = ctx;
+  const ctx = msg.message?.extendedTextMessage?.contextInfo ?? {},
+        { mentionedJid = [], participant = '' } = ctx,
+        isReplyBot = participant === botId,
+        isMentionBot = mentionedJid.includes(botId);
 
-  const isReplyBot   = participant === botId;
-  const isMentionBot = mentionedJid.includes(botId);
+  if (ctx && participant && !isReplyBot && !isMentionBot) return !1;
 
-  if (ctx && participant && !isReplyBot && !isMentionBot) return false;
+  const ai = getDBFlag(userId, chatId, 'autoai'),
+        bell = getDBFlag(userId, chatId, 'bell');
 
-  const ai   = getDBFlag(userId, chatId, 'autoai');
-  const bell = getDBFlag(userId, chatId, 'bell');
-  if (!ai && !bell) return false;
+  if (!ai && !bell) return !1;
 
   const triggered = txt?.toLowerCase().includes(botName) || isReplyBot || isMentionBot;
-  if (!triggered) return false;
+  if (!triggered) return !1;
 
   if (ai) {
-    const res = await global.ai(txt, msg, userId);
-    await conn.sendMessage(
-      chatId,
-      { text: res || 'Maaf, saya tidak mengerti.' },
-      { quoted: msg }
-    );
+    const r = await global.ai(txt, msg, userId);
+    await conn.sendMessage(chatId, { text: r || 'Maaf, saya tidak mengerti.' }, { quoted: msg });
   }
 
   if (bell) {
-    const res = await Bella(txt, msg, userId, conn, chatId);
-    if (res.cmd === 'voice' && res.audio) {
-      await conn.sendMessage(
-        chatId,
-        { audio: Buffer.from(res.audio), mimetype: 'audio/mpeg', ptt: true },
-        { quoted: msg }
-      );
-    } else if (res.msg) {
-      await conn.sendMessage(chatId, { text: res.msg }, { quoted: msg });
-    }
+    const r = await Bella(txt, msg, userId, conn, chatId);
+    if (r.cmd === 'voice' && r.audio)
+      await conn.sendMessage(chatId, { audio: r.audio, mimetype: 'audio/mpeg', ptt: !0 }, { quoted: msg });
+    else if (r.msg)
+      await conn.sendMessage(chatId, { text: r.msg }, { quoted: msg });
   }
 
-  return true;
+  return !0;
 };
 
 const exCht = (msg = {}) => {

@@ -133,50 +133,49 @@ async function Elevenlabs(text, voice = "dabi", pitch = 0, speed = 0.9) {
 }
 
 async function Bella(text, msg, senderId, conn, chatId) {
-  console.log("[DEBUG Bella] args:", { text, senderId, chatId, connType: typeof conn })
+  const s = await loadSession(sesiBell),
+        r = await bell({
+          text,
+          id: senderId,
+          fullainame: botFullName,
+          nickainame: botName,
+          senderName: msg.pushName ?? "Unknown",
+          ownerName,
+          date: new Date().toISOString(),
+          role: "Sahabat Deket",
+          msgtype: "text",
+          custom_profile: logic,
+          commands: [
+            {
+              description: "Selalu Gunakan Suara",
+              output: { cmd: "voice", msg: "Pesan di sini..." }
+            }
+          ]
+        });
 
-  const session = await loadSession(sesiBell)
-  const res = await bell({
-    text,
-    id: senderId,
-    fullainame: botFullName,
-    nickainame: botName,
-    senderName: msg.pushName ?? "Unknown",
-    ownerName,
-    date: new Date().toISOString(),
-    role: "Sahabat Deket",
-    msgtype: "text",
-    custom_profile: logic,
-    commands: [{
-      description: "Selalu Gunakan Suara",
-      output: { cmd: "voice", msg: "Pesan di sini..." }
-    }]
-  })
+  if (!r.status)
+    return { cmd: "text", msg: "Maaf, Bella lagi error. Coba lagi nanti ya." };
 
-  if (!res.status) {
-    console.error("Bella response failed:", res.msg)
-    return { cmd: "text", msg: "Maaf, Bella lagi error. Coba lagi nanti ya." }
-  }
-
-  const { msg: replyMsg, cmd } = res.data
-  ;(session[senderId] ??= []).push({
+  const { msg: replyMsg, cmd } = r.data;
+  (s[senderId] ??= []).push({
     time: new Date().toISOString(),
     user: text,
     response: replyMsg,
     cmd
-  })
-  await saveSession(sesiBell, session)
+  });
+  await saveSession(sesiBell, s);
 
   if (cmd === "voice") {
-    const audioBuffer = await Elevenlabs(replyMsg)
+    const audioBuffer = await Elevenlabs(replyMsg);
     if (audioBuffer) {
-      console.log("[DEBUG Bella] calling vn...")
-      await vn(conn, chatId, audioBuffer, msg)
+      await vn(conn, chatId, audioBuffer, msg);
+      return { cmd: "voice" };
+    } else {
+      return { cmd: "text", msg: replyMsg };
     }
-    return { cmd: "voice", msg: replyMsg }
   }
 
-  return { cmd, msg: replyMsg }
+  return { cmd, msg: replyMsg };
 }
 
 async function ai(textMessage, msg, senderId) {
