@@ -17,6 +17,7 @@ import makeInMemoryStore from "./toolkit/store.js";
 import Cc from "./session/setCfg.js";
 import { cekSholat } from "./toolkit/pengingat.js";
 import emtData from "./toolkit/transmitter.js";
+import evConnect from './toolkit/connect.js'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -133,30 +134,7 @@ const startBot = async () => {
 
     conn.reactionCache ??= new Map();
     rl.close();
-
-    conn.ev.on("connection.update", u => {
-      const { connection: c, lastDisconnect: l } = u;
-
-      ({
-        open: () => {
-          console.log(chalk.greenBright.bold("✅ Bot online!"));
-          global.autoBio && updateBio(conn);
-        },
-
-        connecting: () => {
-          console.log(chalk.yellowBright.bold("🔄 Menghubungkan kembali..."));
-        },
-
-        close: () => {
-          const r = new Boom(l?.error)?.output?.statusCode;
-          console.log(chalk.redBright.bold("❌ Koneksi terputus, mencoba ulang..."));
-          r === DisconnectReason.loggedOut
-            ? console.log(chalk.redBright.bold("🚫 Session invalid / logout, hapus session lalu scan ulang."))
-            : startBot();
-          startBot();
-        }
-      }[c]?.())
-    })
+    evConnect(conn, startBot);
 
     conn.ev.on("messages.upsert", async ({ messages }) => {
       const msg = messages?.[0]
