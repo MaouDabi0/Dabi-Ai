@@ -428,15 +428,15 @@ async function cancelAfk(senderId, chatId, msg, conn) {
   try {
     if (!senderId) return;
 
-    const user = getUser(senderId);
-    if (!user || !user?.value?.afk?.afkTime) return;
+    const user = getUser(senderId),
+          afkData = user?.data?.afk;
 
-    const { afkTime, reason = 'Tidak ada alasan' } = user.value.afk;
-    if (typeof afkTime !== 'number' || afkTime <= 0) return;
+    if (!user || !afkData?.afkTime) return;
 
-    const duration = Format.duration(afkTime, Date.now()) || 'Baru saja';
+    const { afkTime, reason = 'Tidak ada alasan' } = afkData,
+          duration = Format.duration(afkTime, Date.now()) || 'Baru saja';
 
-    user.value.afk = {};
+    user.data.afk = {};
     saveDB();
 
     await conn.sendMessage(
@@ -453,26 +453,27 @@ async function cancelAfk(senderId, chatId, msg, conn) {
 }
 
 async function afkTag(msg, conn) {
-  const botId = (conn.user?.id || '').split(':')[0] + '@s.whatsapp.net';
-  const { remoteJid: chatId, participant, fromMe } = msg.key;
-  const senderId = participant || chatId;
+  const botId = (conn.user?.id || '').split(':')[0] + '@s.whatsapp.net',
+        { remoteJid: chatId, participant, fromMe } = msg.key,
+        senderId = participant || chatId;
+
   if (fromMe || senderId === botId) return;
 
-  const ctx = msg.message?.extendedTextMessage?.contextInfo || {};
-  const targets = [...(ctx.mentionedJid || []), ctx.participant]
-    .filter(jid => jid && jid !== botId);
+  const ctx = msg.message?.extendedTextMessage?.contextInfo || {},
+        targets = [...(ctx.mentionedJid || []), ctx.participant].filter(jid => jid && jid !== botId);
 
   for (const targetId of targets) {
-    const targetUser = getUser(targetId);
-    if (!targetUser?.value?.afk?.afkTime) continue;
+    const targetUser = getUser(targetId),
+          afkData = targetUser?.data?.afk;
 
-    const { afkTime, reason = 'Tidak ada alasan' } = targetUser.value.afk;
-    const duration = Format.duration(afkTime, Date.now()) || 'Baru saja';
-    const type = targetId === ctx.participant ? 'reply' : 'mention';
+    if (!afkData?.afkTime) continue;
 
-    const text = type === 'reply'
-      ? `*Jangan ganggu dia!*\nOrang yang kamu reply sedang AFK.\n⏱️ Durasi: ${duration}\n📌 Alasan: ${reason}`
-      : `*Jangan tag dia!*\nOrang yang kamu tag sedang AFK.\n⏱️ Durasi: ${duration}\n📌 Alasan: ${reason}`;
+    const { afkTime, reason = 'Tidak ada alasan' } = afkData,
+          duration = Format.duration(afkTime, Date.now()) || 'Baru saja',
+          type = targetId === ctx.participant ? 'reply' : 'mention',
+          text = type === 'reply'
+            ? `*Jangan ganggu dia!*\nOrang yang kamu reply sedang AFK.\n⏱️ Durasi: ${duration}\n📌 Alasan: ${reason}`
+            : `*Jangan tag dia!*\nOrang yang kamu tag sedang AFK.\n⏱️ Durasi: ${duration}\n📌 Alasan: ${reason}`;
 
     await conn.sendMessage(chatId, { text, mentions: [targetId] }, { quoted: msg });
   }
