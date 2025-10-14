@@ -19,14 +19,13 @@ import { cekSholat } from "./toolkit/pengingat.js";
 import emtData from "./toolkit/transmitter.js";
 import evConnect from './toolkit/connect.js'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url),
+      __dirname = path.dirname(__filename),
+      { reset, timer, labvn, saveLidCache, messageContent, checkSpam } = emtData,
+      { isPrefix } = stg;
 
-const { reset, timer, labvn, saveLidCache, messageContent, checkSpam } = emtData;
-const { isPrefix } = stg;
-
-const logger = pino({ level: "silent" });
-const store = makeInMemoryStore();
+const logger = pino({ level: "silent" }),
+      store = makeInMemoryStore();
 
 let conn;
 
@@ -85,8 +84,8 @@ const mute = async (chatId, senderId, conn) => {
   const groupData = getGc(chatId);
   if (!groupData?.mute) return !1;
 
-  const meta = await conn.groupMetadata(chatId);
-  const isAdmin = meta.participants.some(p => p.admin && p.id === senderId);
+  const meta = await conn.groupMetadata(chatId),
+        isAdmin = meta.participants.some(p => p.admin && p.id === senderId);
 
   return !1;
 };
@@ -111,6 +110,7 @@ const startBot = async () => {
     const { state, saveCreds } = await useMultiFileAuthState("./session");
     conn = makeWASocket({
       auth: state,
+      version: [2,3000,1025150051],
       printQRInTerminal: !1,
       syncFullHistory: !1,
       markOnlineOnConnect: !1,
@@ -142,58 +142,54 @@ const startBot = async () => {
 
       const { chatId, isGroup, senderId, pushName } = exCht(msg)
 
+      let groupMeta = null
       if (isGroup) {
-        const meta = await getMetadata(chatId, conn)
-        if (meta) await saveLidCache(meta)
+        groupMeta = await getMetadata(chatId, conn)
+        if (groupMeta) await saveLidCache(groupMeta)
       }
 
       replaceLid(msg)
 
       const { textMessage, mediaInfo } = messageContent(msg)
       if (!textMessage && !mediaInfo) return
-    
+
       const msgId = msg.key?.id
       if (["conversation", "extendedTextMessage", "imageMessage", "videoMessage"].some(t => msg.message?.[t])) {
         conn.reactionCache.set(msgId, msg)
         setTimeout(() => conn.reactionCache.delete(msgId), 180000)
       }
 
-      const time = Format.indoTime("Asia/Jakarta", "HH:mm")
-      const senderNumber = senderId?.split("@")[0]
-      if (!senderNumber) {
-        console.error(chalk.redBright.bold("gagal mendapatkan nomor pengirim", senderNumber))
-        return
-      }
+      const time = Format.indoTime("Asia/Jakarta", "HH:mm"),
+            senderNumber = senderId?.split("@")[0]
+      if (!senderNumber) return console.error(chalk.redBright.bold("gagal mendapatkan nomor pengirim", senderNumber))
 
-      const db = getDB()
-      const userDb = getUser(senderId)
-      const isPrem = userDb?.value?.isPremium?.isPrem || false
+      const userDb = getUser(senderId),
+            isPrem = userDb?.value?.isPremium?.isPrem || !1
 
       let displayName = pushName || "Pengguna"
       if (isGroup) {
-        const meta = await getMetadata(chatId, conn)
-        displayName = meta ? `${meta.subject} | ${displayName}` : `Grup Tidak Dikenal | ${displayName}`
+        displayName = groupMeta
+          ? `${groupMeta.subject} | ${displayName}`
+          : `Grup Tidak Dikenal | ${displayName}`
       }
 
-      console.log(
-        chalk.yellowBright.bold(`【 ${displayName} 】:`) + chalk.cyanBright.bold(` [ ${time} ]`)
-      )
-      if (mediaInfo && textMessage) console.log(chalk.whiteBright.bold(`  [ ${mediaInfo} ] | [ ${textMessage} ]`))
-      else if (mediaInfo) console.log(chalk.whiteBright.bold(`  [ ${mediaInfo} ]`))
-      else if (textMessage) console.log(chalk.whiteBright.bold(`  [ ${textMessage} ]`))
+      console.log(chalk.yellowBright.bold(`【 ${displayName} 】:`) + chalk.cyanBright.bold(` [ ${time} ]`))
+      const infoLog = [mediaInfo, textMessage].filter(Boolean).join(" | ")
+      if (infoLog) console.log(chalk.whiteBright.bold(`  [ ${infoLog} ]`))
 
       if (banned(senderId)) return console.log(`⚠️ User ${senderId} dibanned`)
 
-      await Promise.all([
-        cekSholat(conn, msg, { chatId }),
-        labvn(textMessage, msg, conn, chatId),
-        Cc(conn, msg, textMessage)
-      ])
+      const parallel = (...tasks) => Promise.all(tasks.map(t => t()))
 
-      if (await groupFilter(conn, msg, chatId, senderId, isGroup)) return
-      if (await badwordFilter(conn, msg, chatId, senderId, isGroup)) return
-      if (await mute(chatId, senderId, conn)) return
-      if (isPublic(senderId)) return
+      await parallel(
+        () => cekSholat(conn, msg, { chatId }),
+        () => labvn(textMessage, msg, conn, chatId),
+        () => Cc(conn, msg, textMessage)
+      )
+
+      const publicFilter = async (_, __, ___, sid) => isPublic(sid)
+      for (const f of [groupFilter, badwordFilter, mute, publicFilter]) 
+        if (await f(conn, msg, chatId, senderId, isGroup)) return
 
       if (msg.message.reactionMessage) await rctKey(msg, conn)
 
@@ -223,12 +219,12 @@ const startBot = async () => {
         setTimeout(() => conn.sendPresenceUpdate("paused", chatId), 3000)
       }
 
-      await Promise.all([
-        cancelAfk(senderId, chatId, msg, conn),
-        afkTag(msg, conn),
-        shopHandle(conn, msg, textMessage, chatId, senderId),
-        handleGame(conn, msg, chatId, textMessage)
-      ])
+      await parallel(
+        () => cancelAfk(senderId, chatId, msg, conn),
+        () => afkTag(msg, conn),
+        () => shopHandle(conn, msg, textMessage, chatId, senderId),
+        () => handleGame(conn, msg, chatId, textMessage)
+      )
 
       if (await global.chtEmt(textMessage, msg, senderId, chatId, conn)) return
 
@@ -237,33 +233,24 @@ const startBot = async () => {
         if ((mode === "group" && !isGroup) || (mode === "private" && isGroup)) return
       }
 
-      const parsedPrefix = parseMessage(msg, isPrefix)
-      const parsedNoPrefix = parseNoPrefix(msg)
-      if (!parsedPrefix && !parsedNoPrefix) return
-
       const runPlugin = async (parsed, prefixUsed) => {
         const { commandText, chatInfo } = parsed
         for (const [fileName, plugin] of Object.entries(global.plugins)) {
           if (!plugin?.command?.includes(commandText)) continue
-
           if (prefixUsed) {
             authUser(msg, chatInfo)
             if (await checkSpam(chatInfo.senderId, conn, chatInfo.chatId)) return
           }
-
           const userData = getUser(chatInfo.senderId)
           if (
             (plugin.premium && !(await global.isPrem(plugin, conn, msg))) ||
             (plugin.owner && !(await global.isOwner(plugin, conn, msg)))
           ) continue
-
           const allowRun =
             plugin.prefix === "both" ||
             (plugin.prefix === false && !prefixUsed) ||
             ((plugin.prefix !== "both" && plugin.prefix !== false) && prefixUsed)
-
           if (!allowRun) continue
-
           try {
             await plugin.run(conn, msg, { ...parsed, isPrefix, store })
             if (userData) {
@@ -277,8 +264,12 @@ const startBot = async () => {
         }
       }
 
-      if (parsedPrefix) await runPlugin(parsedPrefix, true)
-      if (parsedNoPrefix) await runPlugin(parsedNoPrefix, false)
+      for (const [parsed, prefixUsed] of [
+        [parseMessage(msg, isPrefix), true],
+        [parseNoPrefix(msg), false]
+      ]) {
+        if (parsed) await runPlugin(parsed, prefixUsed)
+      }
     })
 
     conn.ev.on('group-participants.update', async ({ id: chatId, participants, action }) => {
