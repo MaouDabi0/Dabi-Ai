@@ -23,7 +23,22 @@
 - - -
 
 ## Penginstalan Pada Termux
+### otomatis
+1. Update Package
 
+   ```bash
+   pkg upgrade -y && pkg update -y
+   ```
+2. install module
+```bash
+bash install.sh
+```
+3. start
+```bash
+npm start
+```
+
+### manual
 Salin atau ketik promt seperti yang ada di bawah ini di termux
 
  1. Update Package
