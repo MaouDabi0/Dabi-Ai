@@ -1,74 +1,45 @@
-import whatsmusic from '../../toolkit/scrape/whatsmusic.js';
-import { downloadMediaMessage } from '@whiskeysockets/baileys';
-import fs from 'fs';
+import whatsmusic from '../../toolkit/scrape/whatsmusic.js'
+import { downloadMediaMessage } from '@whiskeysockets/baileys'
+import fs from 'fs'
 
 export default {
   name: 'whatsmusic',
   command: ['whatmusic'],
   tags: 'Tools Menu',
   desc: 'Mendeteksi lagu dari voice note/audio',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
-    commandText,
-    prefix,
-    args,
-    setting
+    chatInfo
   }) => {
     try {
-      const { chatId } = chatInfo;
+      const { chatId } = chatInfo,
+            quotedMsg = msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+            audio = quotedMsg?.audioMessage || quotedMsg?.voiceNoteMessage
 
-      const quotedMessage = msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-      if (!quotedMessage) {
-        return conn.sendMessage(chatId, {
-          text: '❌ Reply audio/voice note dengan perintah ini.'
-        }, { quoted: msg });
-      }
+      if (!quotedMsg || !audio)
+        return conn.sendMessage(chatId, { text: 'Reply audio atau voice note dengan perintah ini.' }, { quoted: msg })
 
-      const audio = quotedMessage.audioMessage || quotedMessage.voiceNoteMessage;
-      if (!audio) {
-        return conn.sendMessage(chatId, {
-          text: '❌ Reply audio/voice note dengan perintah ini.'
-        }, { quoted: msg });
-      }
+      const ctx = msg.message.extendedTextMessage.contextInfo,
+            mediaBuffer = await downloadMediaMessage({
+              key: { remoteJid: msg.key.remoteJid, id: ctx.stanzaId, fromMe: !1, participant: ctx.participant },
+              message: quotedMsg
+            }, 'buffer', {})
 
-      const mediaBuffer = await downloadMediaMessage({
-        key: {
-          remoteJid: msg.key.remoteJid,
-          id: msg.message.extendedTextMessage.contextInfo.stanzaId,
-          fromMe: false,
-          participant: msg.message.extendedTextMessage.contextInfo.participant,
-        },
-        message: quotedMessage
-      }, 'buffer', {});
+      if (!mediaBuffer)
+        return conn.sendMessage(chatId, { text: 'Gagal mengunduh audio.' }, { quoted: msg })
 
-      if (!mediaBuffer) {
-        return conn.sendMessage(chatId, {
-          text: '❌ Gagal mengunduh audio.'
-        }, { quoted: msg });
-      }
+      await conn.sendMessage(chatId, { text: 'Mendeteksi lagu...' }, { quoted: msg })
 
-      await conn.sendMessage(chatId, { text: '🔍 Mendeteksi lagu...' }, { quoted: msg });
+      const result = await whatsmusic(mediaBuffer, termaiWeb, termaiKey)
 
-      const result = await whatsmusic(mediaBuffer, termaiWeb, termaiKey);
-
-      if (result.success) {
-        const { title, artists, acrid } = result;
-        return conn.sendMessage(chatId, {
-          text: `🎵 Lagu Dikenali:\n\n*Judul:* ${title}\n*Artis:* ${artists}\n*ACRID:* ${acrid}`
-        }, { quoted: msg });
-      } else {
-        return conn.sendMessage(chatId, {
-          text: `❌ ${result.message}`
-        }, { quoted: msg });
-      }
-
-    } catch (error) {
-      conn.sendMessage(msg.key.remoteJid, {
-        text: '⚠️ Terjadi kesalahan saat mendeteksi lagu.'
-      }, { quoted: msg });
+      return result.success
+        ? conn.sendMessage(chatId, { text: `Lagu Dikenali:\n\nJudul: ${result.title}\nArtis: ${result.artists}\nACRID: ${result.acrid}` }, { quoted: msg })
+        : conn.sendMessage(chatId, { text: result.message }, { quoted: msg })
+    } catch (e) {
+      conn.sendMessage(msg.key.remoteJid, { text: 'Terjadi kesalahan saat mendeteksi lagu.' }, { quoted: msg })
     }
-  },
-};
+  }
+}

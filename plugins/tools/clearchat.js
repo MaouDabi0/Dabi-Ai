@@ -3,28 +3,22 @@ export default {
   command: ['clearchat', 'cc'],
   tags: 'Tools Menu',
   desc: 'Bersihkan semua riwayat chat',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    chatInfo
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
+    const { chatId } = chatInfo
     try {
-      console.log(`Attempting to clear chat for chatId: ${chatId}`);
-
-      await conn.chatModify({ clear: { jid: chatId, fromMe: true } }, chatId);
-
-      console.log(`Successfully cleared chat for chatId: ${chatId}`);
-      conn.sendMessage(chatId, { text: `✅ Semua riwayat chat berhasil dibersihkan!` }, { quoted: msg });
-
+      console.log(`Attempting to clear chat for chatId: ${chatId}`)
+      await conn.chatModify({ clear: { jid: chatId, fromMe: !0 } }, chatId)
+      console.log(`Successfully cleared chat for chatId: ${chatId}`)
+      conn.sendMessage(chatId, { text: `Semua riwayat chat berhasil dibersihkan` }, { quoted: msg })
     } catch (err) {
-      console.error('Error during clear chat operation:', err);
-      conn.sendMessage(chatId, { text: '❌ Gagal membersihkan riwayat chat. Pastikan bot memiliki izin yang diperlukan.' }, { quoted: msg });
+      if (err || !chatId) return console.error('Error during clear chat operation:', err),
+      conn.sendMessage(chatId, { text: 'Gagal membersihkan riwayat chat, periksa izin bot' }, { quoted: msg })
     }
   }
-};
+}

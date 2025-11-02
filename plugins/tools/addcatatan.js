@@ -1,16 +1,16 @@
 import fs from "fs";
 import path from "path";
-const __dirname = getDirname(import.meta.url);
-const catatanPath = path.join(__dirname, "../../toolkit/db/catatan.json");
+
+const catatanPath = path.join(dirname, "./db/catatan.json");
 
 export default {
   name: "addcatat",
   command: ["addcatat", "addcatatan"],
   tags: "Tools Menu",
   desc: "Tambah nama catatan",
-  prefix: true,
-  owner: true,
-  premium: false,
+  prefix: !0,
+  owner: !0,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -22,18 +22,18 @@ export default {
     try {
       if (!fs.existsSync(catatanPath)) fs.writeFileSync(catatanPath, "{}");
 
-      const catatan = JSON.parse(fs.readFileSync(catatanPath));
-      const nama = args[0];
+      const catatan = JSON.parse(fs.readFileSync(catatanPath)),
+            nama = args[0];
 
-      if (!nama)
-        return conn.sendMessage(chatId, { text: `Contoh: ${prefix}addcatat NamaCatatan` }, { quoted: msg });
-
-      if (catatan[nama])
-        return conn.sendMessage(chatId, { text: `Catatan *${nama}* sudah ada.` }, { quoted: msg });
+      if (!nama || catatan[nama]) 
+        return conn.sendMessage(chatId, { 
+          text: !nama 
+            ? `Contoh: ${prefix}addcatat NamaCatatan` 
+            : `Catatan *${nama}* sudah ada.` 
+        }, { quoted: msg });
 
       catatan[nama] = {};
       fs.writeFileSync(catatanPath, JSON.stringify(catatan, null, 2));
-
       return conn.sendMessage(chatId, { text: `Berhasil membuat catatan *${nama}*.` }, { quoted: msg });
 
     } catch (err) {
