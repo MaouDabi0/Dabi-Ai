@@ -4,71 +4,62 @@ import demote from '../plugins/group/demote.js';
 import play from '../plugins/download/play.js';
 import elevenlabs from '../plugins/fun/elevenlabs.js';
 
-const { run: kickRun } = kick;
-const { run: promoteRun } = promote;
-const { run: demoteRun } = demote;
-const { run: playRun } = play;
-const { run: elevenlabsRun } = elevenlabs;
+const { run: kickRun } = kick,
+      { run: promoteRun } = promote,
+      { run: demoteRun } = demote,
+      { run: playRun } = play,
+      { run: elevenlabsRun } = elevenlabs
 
 async function rctKey(msg, conn) {
   try {
-    const reaction = msg.message.reactionMessage?.text;
-    const reactedKey = msg.message.reactionMessage?.key;
-    if (!reaction || !reactedKey?.id || !reactedKey?.remoteJid) return;
+    const reaction = msg.message.reactionMessage?.text,
+          reactedKey = msg.message.reactionMessage?.key
+    if (!reaction || !reactedKey?.id || !reactedKey?.remoteJid) return
 
-    const chatId = reactedKey.remoteJid;
-    const participant = reactedKey.participant;
-    const isFromMe = reactedKey.fromMe;
-    const senderId = msg.key.participant || msg.key.remoteJid;
-    const isGroup = chatId.endsWith('@g.us');
-    if (!isGroup) return;
+    const chatId = reactedKey.remoteJid,
+          participant = reactedKey.participant,
+          isFromMe = reactedKey.fromMe,
+          senderId = msg.key.participant || msg.key.remoteJid,
+          isGroup = chatId.endsWith('@g.us')
+    if (!isGroup) return
 
-    const { botNumber, botAdmin, userAdmin } = await exGrup(conn, chatId, senderId);
-    const isTargetFromBot = participant === botNumber;
-
-    const dummyMessage = {
-      key: reactedKey,
-      message: {
-        extendedTextMessage: {
-          text: '',
-          contextInfo: {
-            participant,
-            quotedMessage: null,
-            mentionedJid: [participant]
-          }
-        }
-      }
-    };
-
-    const chatInfo = { chatId, senderId, isGroup };
-    const Msg = conn.reactionCache?.get(reactedKey.id);
-    const getTextFromMsg = m =>
-      m?.message?.conversation ||
-      m?.message?.extendedTextMessage?.text ||
-      m?.message?.imageMessage?.caption ||
-      m?.message?.videoMessage?.caption;
-
-    const handleReaction = async (condition, callback) => {
-      if (condition) await callback();
-    };
+    const { botNumber, botAdmin, userAdmin } = await exGrup(conn, chatId, senderId),
+          isTargetFromBot = participant === botNumber,
+          dummyMessage = {
+            key: reactedKey,
+            message: {
+              extendedTextMessage: {
+                text: '',
+                contextInfo: {
+                  participant,
+                  quotedMessage: null,
+                  mentionedJid: [participant]
+                }
+              }
+            }
+          },
+          chatInfo = { chatId, senderId, isGroup },
+          Msg = conn.reactionCache?.get(reactedKey.id),
+          getTextFromMsg = m =>
+            m?.message?.conversation ||
+            m?.message?.extendedTextMessage?.text ||
+            m?.message?.imageMessage?.caption ||
+            m?.message?.videoMessage?.caption,
+          handleReaction = async (condition, callback) => { if (condition) await callback() }
 
     switch (reaction) {
       case '❌':
         await handleReaction(
-          isFromMe || isTargetFromBot || userAdmin,
+          isFromMe || userAdmin || (isTargetFromBot && participant !== botNumber),
           async () => {
-            if (!isTargetFromBot && !botAdmin) return;
-            await conn.sendMessage(chatId, {
-              delete: {
-                remoteJid: chatId,
-                fromMe: isTargetFromBot,
-                id: reactedKey.id,
-                ...(isTargetFromBot ? {} : { participant })
-              }
-            });
+            isTargetFromBot && participant !== botNumber
+              ? await conn.sendMessage(chatId, { delete: { remoteJid: chatId, fromMe: !0, id: reactedKey.id } })
+              : !isTargetFromBot && botAdmin
+                ? await conn.sendMessage(chatId, { delete: { remoteJid: chatId, fromMe: !1, id: reactedKey.id, participant } })
+                : !1
           }
-        );
-        break;
+        )
+        break
 
       case '🦵':
         await handleReaction(userAdmin && botAdmin, async () =>

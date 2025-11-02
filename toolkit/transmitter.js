@@ -5,15 +5,16 @@ import chalk from "chalk";
 import fetch from "node-fetch";
 import { exec } from "child_process";
 import { fileURLToPath } from "url";
+import { generateWAMessageContent, getContentType } from '@whiskeysockets/baileys'
 import { convertToOpus, generateWaveform } from './ffmpeg.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const memoryCache = {};
-const groupCache = new Map();
+const memoryCache = {},
+      groupCache = new Map();
 
-const sesiBell = path.join(__dirname, "../temp/BellaSession.json");
-const sesiAi = path.join(__dirname, "../temp/AiSesion.json");
+const sesiBell = path.join(__dirname, "../temp/BellaSession.json"),
+      sesiAi = path.join(__dirname, "../temp/AiSesion.json");
 
 const loadSession = async (file) => {
   try {
@@ -45,65 +46,53 @@ const fetchBuffer = async (url) => {
 };
 
 function replaceLid(obj, visited = new WeakSet()) {
-  if (!obj) return obj;
-
-  if (typeof obj === "object") {
-    if (visited.has(obj)) return obj;
-    visited.add(obj);
-
-    if (Array.isArray(obj)) return obj.map(i => replaceLid(i, visited));
-    if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return obj;
-
-    for (const k in obj) {
-      obj[k] = replaceLid(obj[k], visited);
-    }
-    return obj;
+  if (!obj) return obj
+  if (typeof obj === 'object') {
+    if (visited.has(obj)) return obj
+    visited.add(obj)
+    if (Array.isArray(obj)) return obj.map(i => replaceLid(i, visited))
+    if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return obj
+    for (const k in obj) obj[k] = replaceLid(obj[k], visited)
+    return obj
   }
 
-  if (typeof obj === "string") {
+  if (typeof obj === 'string') {
     if (/@lid$/.test(obj)) {
-      const phone = Object.entries(global.lidCache ?? {}).find(([, v]) => v === obj)?.[0];
-      if (phone) {
-        return `${phone}@s.whatsapp.net`;
-      }
+      const phone = Object.entries(global.lidCache ?? {}).find(([, v]) => v === obj)?.[0]
+      if (phone) return `${phone}@s.whatsapp.net`
     }
 
     return obj
       .replace(/@(\d+)@lid/g, (_, id) => {
-        const phone = Object.entries(global.lidCache ?? {}).find(([, v]) => v === `${id}@lid`)?.[0];
-        return phone ? `@${phone}` : `@${id}@lid`;
+        const phone = Object.entries(global.lidCache ?? {}).find(([, v]) => v === `${id}@lid`)?.[0]
+        return phone ? `@${phone}` : `@${id}@lid`
       })
       .replace(/@(\d+)(?!@)/g, (m, lid) => {
-        const phone = Object.entries(global.lidCache ?? {}).find(([, v]) => v === `${lid}@lid`)?.[0];
-        return phone ? `@${phone}` : m;
-      });
+        const phone = Object.entries(global.lidCache ?? {}).find(([, v]) => v === `${lid}@lid`)?.[0]
+        return phone ? `@${phone}` : m
+      })
   }
 
-  return obj;
+  return obj
 }
 
 async function vn(conn, chatId, audioBuffer, msg = null) {
   try {
-    const buff = await convertToOpus(audioBuffer)
-    const waveform = await generateWaveform(buff)
+    const buff = await convertToOpus(audioBuffer),
+          config = { audio: buff, mimetype: 'audio/ogg; codecs=opus', ptt: !0 },
+          messageContent = await generateWAMessageContent(config, { upload: conn.waUploadToServer }),
+          type = getContentType(messageContent)
 
-    const messageContent = {
-      audio: buff,
-      mimetype: 'audio/ogg; codecs=opus',
-      ptt: true,
-      waveform
+    if (msg) messageContent[type].contextInfo = {
+      stanzaId: msg.key.id,
+      participant: msg.key.participant || msg.key.remoteJid,
+      quotedMessage: msg.message
     }
 
-    if (msg) {
-      messageContent.contextInfo = {
-        stanzaId: msg.key.id,
-        participant: msg.key.participant || msg.key.remoteJid,
-        quotedMessage: msg.message
-      }
-    }
-
-    return await conn.sendMessage(chatId, messageContent, { quoted: msg })
+    messageContent[type].waveform = await generateWaveform(buff)
+    return await conn.relayMessage(chatId, messageContent, {})
   } catch (err) {
+    console.log('error pasa vn', err)
     throw err
   }
 }
@@ -147,8 +136,62 @@ async function Bella(text, msg, senderId, conn, chatId) {
           custom_profile: logic,
           commands: [
             {
-              description: "Selalu Gunakan Suara",
-              output: { cmd: "voice", msg: "Pesan di sini..." }
+              description: 'Jika perlu direspon dengan suara',
+              output: {
+                cmd: 'voice',
+                msg: `Pesan di sini. Gunakan gaya bicara <nickainame> yang menarik dan realistis, lengkap dengan tanda baca yang tepat agar terdengar hidup saat diucapkan.`
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk menampilkan menu (maka jawab lah dengan mengatakan ini menu nya!)',
+              output: { 
+                cmd: 'menu'
+              }
+            },
+            {
+              description: 'Jika pesan adalah perintah untuk membuka/menutup group',
+              output: {
+                cmd: ['opengroup', 'closegroup']
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk membuat stiker atau mengubah sebuah gambar menjadi stiker. (Abaikan isi konten pada gambar!)',
+              output: {
+                cmd: 'stiker'
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk membuat stiker to image atau mengubah sebuah sticker menjadi gambar. (Abaikan isi konten pada sticker!)',
+              output: {
+                cmd: 'toimg'
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk mengecek api, maka respon dengan cmd: cekkey!',
+              output: {
+                cmd: 'cekkey'
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk mengedit image atau gambar, maka respon dengan cmd: i2i dan hanya untuk cmd ini msg: permintaan dari pengguna.',
+              output: {
+                cmd: 'i2i',
+                msg: `Pesan di sini tambahkan detail untuk promt atau permintaan dengan tanda baca dan abaikan <nickainame>`
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk memasuki atau bergabung dengan grup, maka respon dengan isi msg dengan link yang di kirim oleh user',
+              output: {
+                cmd: 'join',
+                msg: 'Pesan di sini sertakan link grup yang di kirim oleh user dalam respon kamu!'
+              }
+            },
+            {
+              description: 'Jika pesan adalah permintaan untuk mencari lagu, maka isi msg: judul lagu yang di minta. Hanya judul nya saja, dan cmd selalu play',
+              output: {
+                cmd: ['play', 'cariin', 'putar', 'cari'],
+                msg: 'Pesan di sini tambahkan judul lagu yang di cari'
+              }
             }
           ]
         });
@@ -207,55 +250,36 @@ const voiceList = new Set([
   "MasKhanID","Myka","raiden","CelzoID","dabi"
 ]);
 
-async function labvn(message, msg, conn, chatId, prefix = ".") {
+async function labvn(message, msg, conn, chatId, prefix = '.') {
   if (!message?.startsWith(prefix)) return
-  const [cmd, ...args] = message.slice(prefix.length).trim().split(/\s+/)
-  const voice = cmd.toLowerCase()
-  if (!voiceList.has(voice)) return
-  if (!(await isPrem({ premium: true }, conn, msg))) return
-
-  const text = args.join(" ").trim()
-  if (!text) return
-
+  const [cmd, ...args] = message.slice(prefix.length).trim().split(/\s+/),
+        voice = cmd.toLowerCase(),
+        text = args.join(' ').trim()
+  if (!voiceList.has(voice) || !(await isPrem({ premium: !0 }, conn, msg)) || !text) return
   try {
-    const audioBuffer = await fetchBuffer(
-      `${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(text)}&voice=${voice}&pitch=0&speed=0.9&key=${termaiKey}`
-    )
+    const audioBuffer = await fetchBuffer(`${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(text)}&voice=${voice}&pitch=0&speed=0.9&key=${termaiKey}`)
     await vn(conn, chatId, audioBuffer, msg)
   } catch (err) {
-    console.error(err)
-    await conn.sendMessage(chatId, { text: "⚠️ *Gagal membuat suara!*" }, { quoted: msg })
+    console.error(err), await conn.sendMessage(chatId, { text: '⚠️ *Gagal membuat suara!*' }, { quoted: msg })
   }
 }
 
 async function getMetadata(id, conn, retry = 2) {
-  if (!global.groupCache) global.groupCache = new Map();
-  if (global.groupCache.has(id)) {
-    return global.groupCache.get(id);
-  }
-
+  if (!global.groupCache) global.groupCache = new Map()
+  if (global.groupCache.has(id)) return global.groupCache.get(id)
   try {
-    const metadata = await conn.groupMetadata(id);
-    global.groupCache.set(id, metadata);
-    setTimeout(() => global.groupCache.delete(id), 2 * 60 * 1000);
-    return metadata;
+    const metadata = await conn.groupMetadata(id)
+    return global.groupCache.set(id, metadata), setTimeout(() => global.groupCache.delete(id), 2 * 6e4), metadata
   } catch (e) {
-    if (retry > 0) {
-      await new Promise(r => setTimeout(r, 1000));
-      return getMetadata(id, conn, retry - 1);
-    }
-    return null;
+    if (retry > 0) return await new Promise(r => setTimeout(r, 1e3)), getMetadata(id, conn, retry - 1)
+    return null
   }
 }
 
 async function saveLidCache(metadata) {
-  for (const participant of metadata?.participants || []) {
-    const phone = participant.phoneNumber?.replace(/@.*/, "");
-    const lid = participant.id?.endsWith("@lid") ? participant.id : null;
-
-    if (phone && lid) {
-      global.lidCache[phone] = lid;
-    }
+  for (const p of metadata?.participants || []) {
+    const phone = p.phoneNumber?.replace(/@.*/, ''), lid = p.id?.endsWith('@lid') ? p.id : null
+    if (phone && lid) global.lidCache[phone] = lid
   }
 }
 
@@ -265,117 +289,76 @@ async function isGroupLink(text) {
 }
 
 async function groupFilter(conn, msg, chatId, senderId, isGroup) {
-  if (!isGroup) return;
+  if (!isGroup) return
   try {
-    const groupData = getGc(getDB(), chatId);
-    if (!groupData?.gbFilter) return;
+    const db = getDB(),
+          groupData = getGc(db, chatId)
+    if (!groupData?.gbFilter) return
 
-    const { userAdmin, botNumber } = await exGrup(conn, chatId, senderId);
-    if (userAdmin || senderId === botNumber || msg.key?.fromMe) return;
+    const { userAdmin, botNumber } = await exGrup(conn, chatId, senderId)
+    if (userAdmin || senderId === botNumber || msg.key?.fromMe) return
 
-    let textMessage = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
-    const keys = Object.keys(msg.message || {});
-    const type = keys.find(k => k !== "messageContextInfo") || keys[0];
-    const isTaggedStatus = !!msg.message?.groupStatusMentionMessage;
-    if (isTaggedStatus) textMessage = "Grup ini disebut dalam status";
+    let textMessage = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "",
+        keys = Object.keys(msg.message || {}),
+        type = keys.find(k => k !== 'messageContextInfo') || keys[0],
+        isTaggedStatus = !!msg.message?.groupStatusMentionMessage
+    if (isTaggedStatus) textMessage = 'Grup ini disebut dalam status'
 
     const filters = [
-      {
-        enabled: !!groupData.gbFilter?.link?.antilink,
-        condition: await isGroupLink(textMessage),
-        reason: "Link grup terdeteksi"
-      },
-      {
-        enabled: !!groupData.gbFilter?.stiker?.antistiker,
-        condition: type === "stickerMessage",
-        reason: "Stiker terdeteksi"
-      },
-      {
-        enabled: !!groupData.gbFilter?.antibot,
-        condition: (() => {
-          const c = msg.message?.contextInfo || {};
-          return (
-            c.forwardingScore > 0 ||
-            !!c.externalAdReply ||
-            c.forwardedNewsletterMessage != null ||
-            /menu|owner|allmenu/i.test(textMessage) ||
-            type === "documentMessage"
-          );
-        })(),
-        reason: "Deteksi konten mencurigakan"
-      },
-      {
-        enabled: !!groupData.gbFilter?.antiTagSw,
-        condition: isTaggedStatus,
-        reason: "Tag status terdeteksi"
-      }
-    ];
+      { enabled: !!groupData.gbFilter?.link?.antilink, condition: await isGroupLink(textMessage), reason: 'Link grup terdeteksi' },
+      { enabled: !!groupData.gbFilter?.stiker?.antistiker, condition: type === 'stickerMessage', reason: 'Stiker terdeteksi' },
+      { enabled: !!groupData.gbFilter?.antibot, condition: (() => {
+          const c = msg.message?.contextInfo || {}
+          return c.forwardingScore > 0 || !!c.externalAdReply || c.forwardedNewsletterMessage != null ||
+                 /menu|owner|allmenu/i.test(textMessage) || type === 'documentMessage'
+        })(), reason: 'Deteksi konten mencurigakan' },
+      { enabled: !!groupData.gbFilter?.antiTagSw, condition: isTaggedStatus, reason: 'Tag status terdeteksi' }
+    ]
 
-    for (const f of filters) {
+    for (const f of filters)
       if (f.enabled && f.condition) {
-        await conn.sendMessage(
-          chatId,
-          {
-            text: `🚫 ${f.reason} dari @${senderId.split("@")[0]}!\nPesan akan dihapus.`,
-            mentions: [senderId]
-          },
-          { quoted: msg }
-        );
-
-        await conn.sendMessage(chatId, {
-          delete: {
-            remoteJid: chatId,
-            fromMe: false,
-            id: msg.key.id,
-            participant: msg.key.participant || senderId
-          }
-        });
-
-        return true;
+        await conn.sendMessage(chatId, { text: `🚫 ${f.reason} dari @${senderId.split('@')[0]}!\nPesan akan dihapus.`, mentions: [senderId] }, { quoted: msg })
+        await conn.sendMessage(chatId, { delete: { remoteJid: chatId, fromMe: !1, id: msg.key.id, participant: msg.key.participant || senderId } })
+        return !0
       }
-    }
-  } catch (e) {
-    console.error("Error in groupFilter:", e);
+
+    return !1
+  } catch {
+    return !1
   }
 }
 
 async function claimTrial(senderId) {
   try {
-    const user = getUser(senderId);
-    if (!user) return { success: false, message: "Pengguna belum terdaftar.", claimable: false };
+    const user = getUser(senderId)
+    if (!user || user.data.claim) 
+      return { success: !1, message: user ? '⚠️ Sudah pernah claim trial.' : 'Pengguna belum terdaftar.', claimable: !1 }
 
-    if (user.data.claim) 
-      return { success: false, message: "⚠️ Sudah pernah claim trial.", claimable: false };
+    const { key, data } = user,
+          now = Date.now(),
+          trial = 3 * 24 * 36e5,
+          remain = data.isPremium?.time || 0,
+          db = getDB()
 
-    const { key, data } = user;
-    const now = Date.now();
-    const trialDuration = 3 * 24 * 60 * 60 * 1000;
-    const remainingPremium = data.isPremium?.time || 0;
+    data.isPremium = { isPrem: !0, time: remain + trial, activatedAt: now }
+    data.claim = !0
+    db.Private[key] = data, saveDB(db)
 
-    data.isPremium = { isPrem: true, time: remainingPremium + trialDuration, activatedAt: now };
-    data.claim = true;
-
-    const db = getDB();
-    db.Private[key] = data;
-    saveDB(db);
-
-    return { success: true, message: "✅ Trial Premium 3 hari ditambahkan.", claimable: false };
-  } catch (error) {
-    console.error("claimTrial error:", error);
-    return { success: false, message: "Terjadi kesalahan.", claimable: false };
+    return { success: !0, message: '✅ Trial Premium 3 hari ditambahkan.', claimable: !1 }
+  } catch (err) {
+    console.error('claimTrial error:', err)
+    return { success: !1, message: 'Terjadi kesalahan.', claimable: !1 }
   }
 }
 
-async function translateText(text, targetLang = "id") {
+async function translateText(text, targetLang = 'id') {
   try {
-    const response = await fetch(
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&dt=t&tl=${targetLang}&q=${encodeURIComponent(text)}`
-    );
-    const data = await response.json();
-    return data[0].map(item => item[0]).join("");
-  } catch (error) {
-    console.error("Error during translation:", error);
-    return null;
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&dt=t&tl=${targetLang}&q=${encodeURIComponent(text)}`),
+          data = await res.json()
+    return data[0].map(v => v[0]).join('')
+  } catch (err) {
+    console.error('Error during translation:', err)
+    return null
   }
 }
 
@@ -391,16 +374,11 @@ async function badwordFilter(conn, msg, chatId, senderId, isGroup) {
     const group = getGc(getDB(), chatId);
     if (!group?.antibadword?.badword) return;
 
-    const { userAdmin, botNumber } = await exGrup(conn, chatId, senderId);
-    const isFromBot = senderId === botNumber || msg.key?.fromMe;
+    const { userAdmin, botNumber } = await exGrup(conn, chatId, senderId),
+          isFromBot = senderId === botNumber || msg.key?.fromMe;
     if (userAdmin || isFromBot) return;
 
-    const badwords = group.antibadword.badwordText
-      ?.toLowerCase()
-      .split(",")
-      .map(word => word.trim())
-      .filter(Boolean);
-
+    const badwords = group.antibadword.badwordText?.toLowerCase().split(',').map(v => v.trim()).filter(Boolean);
     if (!badwords?.length) return;
 
     const text = (
@@ -408,19 +386,15 @@ async function badwordFilter(conn, msg, chatId, senderId, isGroup) {
       msg.message?.extendedTextMessage?.text ||
       msg.message?.imageMessage?.caption ||
       msg.message?.videoMessage?.caption ||
-      ""
+      ''
     ).toLowerCase();
 
-    if (badwords.some(word => new RegExp(`\\b${word}\\b`, "i").test(text))) {
-      await conn.sendMessage(
-        chatId,
-        { text: `⚠️ Pesan dari @${senderId.split("@")[0]} mengandung kata terlarang.\nPesan akan dihapus.`, mentions: [senderId] },
-        { quoted: msg }
-      );
+    if (badwords.some(w => new RegExp(`\\b${w}\\b`, 'i').test(text))) {
+      await conn.sendMessage(chatId, { text: `Pesan dari @${senderId.split('@')[0]} mengandung kata terlarang.\nPesan akan dihapus.`, mentions: [senderId] }, { quoted: msg }),
       await conn.sendMessage(chatId, { delete: msg.key });
     }
-  } catch (error) {
-    console.error("[badwords] Error:", error);
+  } catch (e) {
+    console.error('badwords error:', e);
   }
 }
 
@@ -480,13 +454,12 @@ async function afkTag(msg, conn) {
 }
 
 async function loadFunctions() {
-  const funcUrl = "https://raw.githubusercontent.com/MaouDabi0/Dabi-Ai-Documentation/main/assets/funcFile/func.js";
-  const code = await fetch(funcUrl).then(r => r.text());
-  const dataUrl = "data:text/javascript;base64," + Buffer.from(code).toString("base64");
-  const mod = await import(dataUrl);
-  const funcs = mod.default;
-  Object.assign(global, funcs);
-  return funcs;
+  const funcUrl = 'https://raw.githubusercontent.com/MaouDabi0/Dabi-Ai-Documentation/main/assets/funcFile/func.js',
+        code = await fetch(funcUrl).then(r => r.text()),
+        dataUrl = 'data:text/javascript;base64,' + Buffer.from(code).toString('base64'),
+        mod = await import(dataUrl),
+        funcs = mod.default;
+  return Object.assign(global, funcs), funcs;
 }
 
 const cache = {
@@ -514,37 +487,32 @@ async function getStanzaId(msg) {
 }
 
 function messageContent(msg) {
-  let textMessage = '';
-  let mediaInfo = '';
+  let textMessage = '',
+      mediaInfo = ''
+  if (!msg?.message) return { textMessage, mediaInfo }
 
-  if (!msg?.message) return { textMessage, mediaInfo };
+  const content = msg.message
 
-  const content = msg.message;
-
-  if (content.groupStatusMentionMessage) {
-    mediaInfo = 'Status Grup';
-    textMessage = 'Grup ini disebut dalam status';
-  }
-
-  if (content.conversation) {
-    textMessage = content.conversation;
-  } else if (content.extendedTextMessage?.text) {
-    textMessage = content.extendedTextMessage.text;
-  } else if (content.imageMessage?.caption) {
-    textMessage = content.imageMessage.caption;
-  } else if (content.videoMessage?.caption) {
-    textMessage = content.videoMessage.caption;
-  } else if (content.reactionMessage) {
-    textMessage = `Memberi reaksi ${content.reactionMessage.text}`;
-  } else if (content.protocolMessage?.type === 14) {
-    textMessage = `Pesan Diedit ${textMessage}`;
-  } else if (content.protocolMessage?.type === 0) {
-    textMessage = 'Pesan Dihapus';
-  } else if (content.ephemeralMessage?.message?.conversation) {
-    textMessage = content.ephemeralMessage.message.conversation;
-  } else if (content.ephemeralMessage?.message?.extendedTextMessage?.text) {
-    textMessage = content.ephemeralMessage.message.extendedTextMessage.text;
-  }
+  if (content.groupStatusMentionMessage)
+    mediaInfo = 'Status Grup', textMessage = 'Grup ini disebut dalam status'
+  else if (content.conversation)
+    textMessage = content.conversation
+  else if (content.extendedTextMessage?.text)
+    textMessage = content.extendedTextMessage.text
+  else if (content.imageMessage?.caption)
+    textMessage = content.imageMessage.caption
+  else if (content.videoMessage?.caption)
+    textMessage = content.videoMessage.caption
+  else if (content.reactionMessage)
+    textMessage = `Memberi reaksi ${content.reactionMessage.text}`
+  else if (content.protocolMessage?.type === 14)
+    textMessage = `Pesan Diedit ${textMessage}`
+  else if (content.protocolMessage?.type === 0)
+    textMessage = 'Pesan Dihapus'
+  else if (content.ephemeralMessage?.message?.conversation)
+    textMessage = content.ephemeralMessage.message.conversation
+  else if (content.ephemeralMessage?.message?.extendedTextMessage?.text)
+    textMessage = content.ephemeralMessage.message.extendedTextMessage.text
 
   const mediaTypes = {
     imageMessage: 'Gambar',
@@ -558,52 +526,40 @@ function messageContent(msg) {
     liveLocationMessage: 'Lokasi Live',
     reactionMessage: 'Reaksi',
     protocolMessage: 'Sistem',
-    ephemeralMessage: 'Sekali Lihat',
-  };
-
-  for (const [key, value] of Object.entries(mediaTypes)) {
-    if (content[key]) mediaInfo = value;
-    if (key === 'ephemeralMessage' && content.ephemeralMessage?.message) {
-      const nestedKey = Object.keys(content.ephemeralMessage.message)[0];
-      if (nestedKey && mediaTypes[nestedKey]) mediaInfo = mediaTypes[nestedKey];
-    }
+    ephemeralMessage: 'Sekali Lihat'
   }
 
-  return { textMessage, mediaInfo };
+  for (const [key, value] of Object.entries(mediaTypes))
+    if (content[key]) mediaInfo = value
+    else if (key === 'ephemeralMessage' && content.ephemeralMessage?.message) {
+      const nestedKey = Object.keys(content.ephemeralMessage.message)[0]
+      if (nestedKey && mediaTypes[nestedKey]) mediaInfo = mediaTypes[nestedKey]
+    }
+
+  return { textMessage, mediaInfo }
 }
 
-const spamTracker = {};
+const spamTracker = {}
 
 async function checkSpam(senderId, conn, chatId, msg) {
-  const user = getUser(senderId);
-  if (!user) return false;
+  const user = getUser(senderId)
+  if (!user) return !1
 
-  const now = Date.now();
-  const userKey = user.key;
+  const now = Date.now(), userKey = user.key
+  if (!spamTracker[userKey]) return spamTracker[userKey] = { count: 1, last: now }, !1
 
-  if (!spamTracker[userKey]) {
-    spamTracker[userKey] = { count: 1, last: now };
-    return false;
-  }
+  const diff = now - spamTracker[userKey].last
+  if (diff <= 3e3)
+    spamTracker[userKey].count++, spamTracker[userKey].last = now,
+    spamTracker[userKey].count >= 3 && (
+      await conn.sendMessage(chatId, { text: '⚠️ Jangan spam!' }, { quoted: msg }),
+      spamTracker[userKey].count = 0, !0
+    )
+  else return diff > 7e3
+    ? (spamTracker[userKey] = { count: 1, last: now }, !1)
+    : (spamTracker[userKey].last = now, !1)
 
-  const diff = now - spamTracker[userKey].last;
-
-  if (diff <= 3000) {
-    spamTracker[userKey].count++;
-    spamTracker[userKey].last = now;
-
-    if (spamTracker[userKey].count >= 3) {
-      await conn.sendMessage(chatId, { text: '⚠️ Jangan spam!' }, { quoted: msg });
-      spamTracker[userKey].count = 0;
-      return true;
-    }
-  } else if (diff > 7000) {
-    spamTracker[userKey] = { count: 1, last: now };
-  } else {
-    spamTracker[userKey].last = now;
-  }
-
-  return false;
+  return !1
 }
 
 const emtData = {

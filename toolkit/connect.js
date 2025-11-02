@@ -1,12 +1,9 @@
 import { DisconnectReason } from '@whiskeysockets/baileys'
 import c from 'chalk'
 import fs from 'fs'
-import { dirname, join } from 'path'
-import { fileURLToPath } from 'url'
+import path from 'path'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const sessionPath = join(__dirname, '../session')
+const sessionPath = path.join(dirname, '../session')
 
 async function initReadline() {
   if (global.rl && !global.rl.closed) return
@@ -24,13 +21,14 @@ const clearSessionAndRestart = async restart => {
     console.log(c.redBright.bold('Gagal hapus session:', e))
   }
   console.log(c.yellowBright.bold('Restarting...'))
-  setTimeout(restart, 500)
+  setTimeout(restart, 5e2)
 }
 
 const handleSessionIssue = async (msg, restart) => {
   console.log(c.redBright.bold('Session error:'), msg)
   await initReadline()
-  const ans = await q(c.yellowBright.bold('Hapus session & restart? (y/n): '))
+  console.log(c.yellowBright.bold('Hapus session & restart? (y/n): '))
+  const ans = await q('> ')
   if (['y', 'ya'].includes(ans.toLowerCase())) {
     await clearSessionAndRestart(restart)
   } else {
@@ -58,11 +56,15 @@ const tryReconnect = async restart => {
   await handleSessionIssue('Session bermasalah', restart)
 }
 
-export default function evConnect(xp, restart) {
+function evConnect(xp, restart) {
   xp.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
       const r = lastDisconnect?.error?.output?.statusCode
       console.log(c.redBright.bold('Koneksi tertutup, status:', r))
+      if (r === 500) {
+        console.log(c.yellowBright.bold('Status 500 terdeteksi, restart otomatis tanpa hapus session...'))
+        return setTimeout(restart, 1000)
+      }
       switch (r) {
         case DisconnectReason.badSession:
           return handleSessionIssue('Session rusak', restart)
@@ -89,3 +91,5 @@ export default function evConnect(xp, restart) {
     }
   })
 }
+
+export { evConnect, initReadline, handleSessionIssue }
