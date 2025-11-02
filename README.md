@@ -45,6 +45,8 @@
    npm start
    ```
 
+> jika lama bisa hapus `ffmpeg` di dalam file `install.sh` karena itu yg membuat lama, tapi mungkin sebagian fitur tidak berfungsi
+
 ### manual
 Salin atau ketik promt seperti yang ada di bawah ini di termux
 
