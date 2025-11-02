@@ -1,13 +1,14 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
 export default {
   name: 'settoko',
   command: ['settoko'],
   tags: 'Shop Menu',
   desc: 'Mengatur atau menulis barang',
-  prefix: true,
-  owner: true,
+  prefix: !0,
+  owner: !0,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -16,32 +17,23 @@ export default {
     commandText,
     args
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    const tokoName = args.shift();
-    const itemName = args.shift();
-    const itemPrice = args.shift();
+    const { chatId, senderId, isGroup } = chatInfo,
+          tokoName = args.shift(),
+          itemName = args.shift(),
+          itemPrice = args.shift(),
+          tokoPath = './toolkit/set/toko.json'
 
-    if (!tokoName || !itemName || !itemPrice) {
-      return conn.sendMessage(chatId, { text: "❌ Format: settoko <nama_toko> <nama_barang> <harga>" }, { quoted: msg });
-    }
+    if (!tokoName || !itemName || !itemPrice) 
+      return conn.sendMessage(chatId, { text: `Format: ${prefix}settoko <nama_toko> <nama_barang> <harga>` }, { quoted: msg })
 
-    const tokoPath = './toolkit/set/toko.json';
-    let tokoData;
-    try {
-      tokoData = JSON.parse(fs.readFileSync(tokoPath, 'utf-8'));
-    } catch (err) {
-      return conn.sendMessage(chatId, { text: "❌ Gagal membaca file tokoon" }, { quoted: msg });
-    }
+    let tokoData
+    try { tokoData = JSON.parse(fs.readFileSync(tokoPath, 'utf-8')) } 
+    catch (e) { return conn.sendMessage(chatId, { text: 'Gagal membaca file toko' }, { quoted: msg }) }
 
-    if (!tokoData.storeSetting[tokoName]) {
-      return conn.sendMessage(chatId, { text: "❌ Toko tidak ditemukan" }, { quoted: msg });
-    }
-
-    tokoData.storeSetting[tokoName].push({ name: itemName, price: itemPrice });
-    fs.writeFileSync(tokoPath, JSON.stringify(tokoData, null, 2));
-
-    await conn.sendMessage(chatId, { 
-      text: `✅ Barang *"${itemName}"* dengan harga *${itemPrice}* berhasil ditambahkan ke toko *"${tokoName}"*!`
-    }, { quoted: msg });
+    !tokoData.storeSetting[tokoName]
+      ? conn.sendMessage(chatId, { text: 'Toko tidak ditemukan' }, { quoted: msg })
+      : (tokoData.storeSetting[tokoName].push({ name: itemName, price: itemPrice * 1e0 }),
+         fs.writeFileSync(tokoPath, JSON.stringify(tokoData, null, 2)),
+         await conn.sendMessage(chatId, { text: `Barang "${itemName}" dengan harga ${itemPrice} berhasil ditambahkan ke toko "${tokoName}"` }, { quoted: msg }))
   }
-};
+}

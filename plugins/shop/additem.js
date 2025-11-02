@@ -1,62 +1,54 @@
-const isNumber = x => !isNaN(x) && Number.isFinite(parseFloat(x));
-
 export default {
   name: 'Add Item',
   command: ['additem'],
   tags: 'Shop Menu',
-  desc: 'Tambah item ke mini toko dengan potongan pajak ( mini toko rpg menu )',
-  prefix: true,
-  premium: false,
+  desc: 'Tambah item ke mini toko dengan potongan pajak (mini toko rpg menu)',
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
     args
   }) => {
-    const { chatId, senderId } = chatInfo;
-
-    if (args.length < 3)
-      return conn.sendMessage(chatId, { text: 'Contoh: .additem <nama toko> <item> <harga>' }, { quoted: msg });
-
-    const [storeName, itemName, hargaStr] = args,
-          harga = parseInt(hargaStr);
-
-    if (!isNumber(harga) || harga <= 0)
-      return conn.sendMessage(chatId, { text: 'Harga tidak valid.' }, { quoted: msg });
-
-    const userData = Object.values(getDB().Private).find(v => v.Nomor === senderId);
-    if (!userData)
-      return conn.sendMessage(chatId, { text: 'Kamu belum terdaftar.' }, { quoted: msg });
-
-    const tokoData = loadStore(),
+    const { chatId, senderId } = chatInfo,
+          isNumber = x => !isNaN(x) && Number.isFinite(parseFloat(x)),
+          [storeName, itemName, hargaStr] = args,
+          harga = parseInt(hargaStr),
+          userData = Object.values(getDB().Private).find(v => v.Nomor === senderId),
+          tokoData = loadStore(),
           bankData = loadBank(),
-          toko = tokoData.shops[storeName];
+          toko = tokoData.shops[storeName],
+          taxRate = parseInt((bankData.bank?.tax || '1e1').replace('%', '')),
+          pajak = Math.floor(harga * taxRate / 1e2)
 
-    if (!toko)
-      return conn.sendMessage(chatId, { text: 'Toko tidak ditemukan.' }, { quoted: msg });
+    if (
+      args.length < 3 || 
+      !isNumber(harga) || harga <= 0 || 
+      !userData || 
+      !toko || toko.id !== userData.noId || 
+      (userData.money?.amount || 0) < pajak
+    )
+      return conn.sendMessage(
+        chatId,
+        { text: 
+          args.length < 3 ? 'Contoh: .additem <nama toko> <item> <harga>' :
+          (!isNumber(harga) || harga <= 0) ? 'Harga tidak valid.' :
+          !userData ? 'Kamu belum terdaftar.' :
+          (!toko ? 'Toko tidak ditemukan.' : toko.id !== userData.noId ? 'Kamu bukan pemilik toko ini.' :
+          (userData.money?.amount || 0) < pajak ? `Uang kamu kurang untuk bayar pajak sebesar ${pajak}` : '')
+        },
+        { quoted: msg }
+      )
 
-    if (toko.id !== userData.noId)
-      return conn.sendMessage(chatId, { text: 'Kamu bukan pemilik toko ini.' }, { quoted: msg });
+    userData.money.amount -= pajak,
+    bankData.bank.saldo = (bankData.bank.saldo || 0) + pajak,
+    toko.items = toko.items || {},
+    toko.items[itemName] = harga,
+    saveStore(tokoData),
+    saveBank(bankData),
+    saveDB()
 
-    const taxRate = parseInt((bankData.bank?.tax || '10').replace('%', '')),
-          pajak = Math.floor(harga * taxRate / 100);
-
-    if ((userData.money?.amount || 0) < pajak)
-      return conn.sendMessage(chatId, { text: `Uang kamu kurang untuk bayar pajak sebesar ${pajak}` }, { quoted: msg });
-
-    userData.money.amount -= pajak;
-    bankData.bank.saldo = (bankData.bank.saldo || 0) + pajak;
-
-    toko.items = toko.items || {};
-    toko.items[itemName] = harga;
-
-    saveStore(tokoData);
-    saveBank(bankData);
-    saveDB();
-
-    return conn.sendMessage(
-      chatId,
-      { text: `Item "${itemName}" telah ditambahkan ke "${storeName}" seharga ${harga}. Pajak ${pajak} telah disetor.` },
-      { quoted: msg }
-    );
+    return conn.sendMessage(chatId, { text: `Item "${itemName}" telah ditambahkan ke "${storeName}" seharga ${harga}. Pajak ${pajak} telah disetor.` }, { quoted: msg })
   }
-};
+}
