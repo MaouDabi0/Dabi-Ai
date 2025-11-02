@@ -30,7 +30,7 @@
    pkg upgrade -y && pkg update -y
    ```
    
-2.Repo Clone
+ 2.Repo Clone
 
    ```bash
    git clone https://github.com/MaouDabi0/Dabi-Ai
