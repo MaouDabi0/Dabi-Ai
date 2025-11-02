@@ -3,27 +3,24 @@ export default {
   command: ['asahotak'],
   tags: 'Game Menu',
   desc: 'Game Asah Otak – Tebak jawaban dari soal!',
-  prefix: true,
-  owner: false,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
     commandText
   }) => {
-    const { chatId, senderId } = chatInfo;
-    const { asahotak } = await global.loadFunctions();
+    const { chatId, senderId } = chatInfo,
+          { asahotak } = await global.loadFunctions()
 
     try {
-      const data = global.load(global.pPath);
-      const gameData = data.FunctionGame || {};
-      const random = asahotak[Math.floor(Math.random() * asahotak.length)];
+      const data = global.load(global.pPath),
+            gameData = data.FunctionGame || {},
+            random = asahotak[Math.floor(Math.random() * asahotak.length)],
+            sent = await conn.sendMessage(chatId, { text: `Asah Otak\n\n${random.soal}\n\nJawab dengan benar sebelum kehabisan kesempatan!` }, { quoted: msg }),
+            sessionKey = `soal${Object.keys(gameData).length + 1}`
 
-      const sent = await conn.sendMessage(chatId, {
-        text: `*Asah Otak*\n\n${random.soal}\n\n⏳ Jawab dengan benar sebelum kehabisan kesempatan!`
-      }, { quoted: msg });
-
-      const sessionKey = `soal${Object.keys(gameData).length + 1}`;
       gameData[sessionKey] = {
         noId: senderId,
         type: commandText,
@@ -32,14 +29,14 @@ export default {
         created: Date.now(),
         id: sent.key.id,
         chance: 3,
-        status: true
-      };
+        status: !0
+      }
 
-      data.FunctionGame = gameData;
-      global.save(data, global.pPath);
+      data.FunctionGame = gameData
+      global.save(data, global.pPath)
     } catch (e) {
-      await conn.sendMessage(chatId, { text: '⚠️ Gagal mengirim soal *Asah Otak*' }, { quoted: msg });
-      console.error('[AsahOtak Error]', e);
+      await conn.sendMessage(chatId, { text: 'Gagal mengirim soal Asah Otak' }, { quoted: msg })
+      console.error('[AsahOtak Error]', e)
     }
   }
-};
+}
