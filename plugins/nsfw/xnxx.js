@@ -1,20 +1,20 @@
-import path from 'path';
-import fs from 'fs';
-import fsp from 'fs/promises';
-import axios from 'axios';
-import { fetchXnxx, searchXnxx } from '../../toolkit/scrape/xnxx.js';
+import path from 'path'
+import fs from 'fs'
+import fsp from 'fs/promises'
+import axios from 'axios'
+import { fetchXnxx, searchXnxx } from '../../toolkit/scrape/xnxx.js'
 
-const TMP = path.resolve('./temp');
-if (!fs.existsSync(TMP)) console.log('Folder temp tidak ada');
+const TMP = path.resolve('./temp')
+fs.existsSync(TMP) ? 0 : console.log('Folder temp tidak ada')
 
 export default {
   name: 'xnxxdl',
   command: ['xnxxdl', 'xnxx'],
   tags: 'Nsfw Menu',
   desc: 'Cari & download video dari xnxx',
-  prefix: true,
-  owner: false,
-  premium: true,
+  prefix: !0,
+  owner: !1,
+  premium: !0,
 
   run: async (conn, msg, {
     chatInfo,
@@ -22,56 +22,37 @@ export default {
     commandText,
     prefix
   }) => {
-    const { chatId } = chatInfo;
-    if (!args[0]) {
-      return conn.sendMessage(
-        chatId,
-        { text: `⚠️ Masukkan judul pencarian!\nContoh: ${prefix}${commandText} Japanese Hentai 2` },
-        { quoted: msg }
-      );
-    }
+    const { chatId } = chatInfo
+    if (!args[0]) return conn.sendMessage(chatId, { text: `Masukkan judul pencarian!\nContoh: ${prefix}${commandText} Japanese Hentai 2` }, { quoted: msg })
 
-    let file;
+    let file
     try {
-      let limit = 2;
-      const lastArg = args[args.length - 1];
-      if (!isNaN(lastArg)) {
-        limit = Math.min(parseInt(lastArg), 5);
-        args.pop();
-      }
+      let limit = 2,
+          lastArg = args[args.length - 1]
+      !isNaN(lastArg) ? (limit = Math.min(parseInt(lastArg), 5), args.pop()) : 0
 
-      const query = args.join(' ');
-      const results = await searchXnxx(query, limit);
-
-      await conn.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
+      const query = args.join(' '),
+            results = await searchXnxx(query, limit)
+      await conn.sendMessage(chatId, { react: { text: '⏳', key: msg.key } })
 
       for (const item of results) {
-        const videoData = await fetchXnxx(item.link);
-        const videoUrl = videoData.download.high || videoData.download.low;
+        const videoData = await fetchXnxx(item.link),
+              videoUrl = videoData.download.high || videoData.download.low,
+              res = await axios.get(videoUrl, { responseType: 'stream' }),
+              writer = fs.createWriteStream(file = path.join(TMP, `xnxx_${Date.now()}.mp4`))
 
-        const res = await axios.get(videoUrl, { responseType: 'stream' });
-        file = path.join(TMP, `xnxx_${Date.now()}.mp4`);
-        const writer = fs.createWriteStream(file);
-        res.data.pipe(writer);
+        res.data.pipe(writer)
+        await new Promise((resv, rej) => (writer.on('finish', resv), writer.on('error', rej)))
 
-        await new Promise((resolve, reject) => {
-          writer.on('finish', resolve);
-          writer.on('error', reject);
-        });
+        await conn.sendMessage(chatId, {
+          video: { url: file },
+          caption: `*${videoData.title}*\nDuration: ${videoData.duration}s\n${videoData.link}`
+        }, { quoted: msg })
 
-        await conn.sendMessage(
-          chatId,
-          {
-            video: { url: file },
-            caption: `🎬 *${videoData.title}*\n⏱ Duration: ${videoData.duration}s\n🔗 ${videoData.link}`
-          },
-          { quoted: msg }
-        );
-
-        await fsp.unlink(file).catch(() => {});
+        await fsp.unlink(file).catch(() => 0)
       }
     } catch (e) {
-      conn.sendMessage(chatId, { text: `Error: ${e.message}` }, { quoted: msg });
+      conn.sendMessage(chatId, { text: `Error: ${e.message}` }, { quoted: msg })
     }
   }
-};
+}
