@@ -25,21 +25,22 @@
 ## Penginstalan Pada Termux
 ### otomatis
 1. Update Package
-
    ```bash
    pkg upgrade -y && pkg update -y
    ```
-   
- 2.Repo Clone
-
+    2.Repo Clone
    ```bash
    git clone https://github.com/MaouDabi0/Dabi-Ai
    ```
-3. install module
+3. masuk file
+   ```bash
+   cd ~/Dabi-Ai
+   ```
+4. install module
    ```bash
    bash install.sh
    ```
-4. start
+5. start
    ```bash
    npm start
    ```
