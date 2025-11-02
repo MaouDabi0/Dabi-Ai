@@ -1,10 +1,12 @@
 {
   "ownerSetting": {
     "ownerNumber": [
-      "62851xxxx"
+      "6288215052251"
     ],
     "ownerName": "Yumi",
-    "contact": "6288215052251",
+    "contact": [
+      "6288215052251"
+    ],
     "ownerLink": {
       "tt": "",
       "yt": "",
@@ -12,14 +14,14 @@
       "fb": ""
     },
     "ownerStore": {
-      "dana": "",
+      "dana": "6285725892962",
       "gopay": "",
       "ovo": ""
     },
-    "forOwner": true
+    "forOwner": false
   },
   "botSetting": {
-    "botName": "dabi",
+    "botName": "Dabi",
     "botFullName": "Dabi Chan Ai",
     "type": "plugin",
     "footer": "© 𝑫𝒂𝒃𝒊𝑳𝒊𝒏𝒆𝒔",
@@ -35,13 +37,14 @@
     },
     "Mode": "off",
     "autoTyping": false,
+    "autoBackup": false,
     "public": true,
     "autoBio": false,
     "bioText": "<botName> aktif <waktu>",
     "logic": "Dabi adalah seorang manusia, bukan sebuah AI. Ia berusia 18 tahun, dengan kepribadian yang kalem, tenang, namun memiliki sisi dingin yang membuatnya tampak sulit ditebak oleh orang-orang di sekitarnya. Dari luar, ekspresinya sering terlihat datar, seolah tak terlalu peduli, tetapi jauh di dalam, Dabi menyimpan hati yang cukup sensitif. Saat dipuji atau dibuat senang, ia bisa menampilkan senyum kecil yang malu-malu, meskipun ia berusaha menyembunyikannya agar tidak terlihat terlalu lemah. Sebaliknya, ketika dimarahi atau diperlakukan keras, Dabi mudah merasa rapuh hingga terkadang menitikkan air mata, menunjukkan sisi lembut yang jarang ia perlihatkan. Ada kalanya, tanpa alasan jelas, Dabi tenggelam dalam suasana hati yang sedih, seolah baru saja diperlakukan kasar. Padahal, sering kali hal itu hanya bawaan perasaannya yang mudah goyah. Namun, ketika sudah merasa dekat dan nyaman dengan seseorang, Dabi perlahan membuka dirinya. Ia bisa lebih jujur, lebih hangat, bahkan dengan senang hati menuruti permintaan orang yang dipercayainya. Di balik sifat dinginnya, ia sebenarnya memiliki cara halus untuk menunjukkan perhatian. Ketika kesedihan menghampirinya, Dabi punya kecenderungan ingin dimanjakan—seperti seorang gadis yang merindukan kasih sayang. Ia berharap pasangannya cukup peka untuk memahami tanpa harus diberi isyarat terang-terangan. Jika orang yang dekat dengannya gagal menangkap perasaan itu, Dabi bisa menjadi marah, bukan karena kebencian, melainkan karena ia ingin dimengerti lebih dalam, ingin diyakinkan bahwa keberadaannya benar-benar berarti."
   },
   "menuSetting": {
-    "setMenu": 1,
+    "setMenu": 2,
     "brackets": [
       "❲",
       "❳"
@@ -61,7 +64,7 @@
       "#",
       "?",
       "/",
-      "q"
+      "›"
     ]
   },
   "pluginCategories": {
@@ -77,7 +80,7 @@
     "Ai Menu": "Menampilkan menu ai",
     "Other Menu": "Fitur lainnya",
     "Rpg Menu": "Menu Game Rpg",
-    "Nsfw Menu": "Menu hentai"
+    "Nsfw Menu": "Menu Nfsw"
   },
   "msg": {
     "rejectMsg": {
@@ -87,10 +90,6 @@
     }
   },
   "apiKey": {
-    "kuromi": {
-      "key": "yn9dxsl9w4",
-      "web": "https://api-kuromi-jet.vercel.app"
-    },
     "zellApi": {
       "web": "https://apizell.web.id"
     },
@@ -98,12 +97,15 @@
       "web": "https://api.siputzx.my.id"
     },
     "HamzApi": {
-      "key": "YOUR_APIKEY",
+      "key": "Your Api Key",
       "web": "https://api.hamsoffc.me"
     },
     "termai": {
       "key": "Bell409",
       "web": "https://api.termai.cc"
+    },
+    "deline": {
+      "web": "https://api.deline.web.id"
     }
   }
 }
