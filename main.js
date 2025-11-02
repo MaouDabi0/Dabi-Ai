@@ -7,7 +7,6 @@ import fs from "fs";
 import path from "path";
 import pino from "pino";
 import chalk from "chalk";
-import readline from "readline";
 import { Boom } from "@hapi/boom";
 import { makeWASocket, useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
 import { fileURLToPath } from "url";
@@ -17,11 +16,9 @@ import makeInMemoryStore from "./toolkit/store.js";
 import Cc from "./session/setCfg.js";
 import { cekSholat } from "./toolkit/pengingat.js";
 import emtData from "./toolkit/transmitter.js";
-import evConnect from './toolkit/connect.js'
+import { evConnect, handleSessionIssue } from './toolkit/connect.js'
 
-const __filename = fileURLToPath(import.meta.url),
-      __dirname = path.dirname(__filename),
-      { reset, timer, labvn, saveLidCache, messageContent, checkSpam } = emtData,
+const { reset, timer, labvn, saveLidCache, messageContent, checkSpam } = emtData,
       { isPrefix } = stg;
 
 const logger = pino({ level: "silent" }),
@@ -47,8 +44,8 @@ setInterval(async () => {
   for (const g of Object.values(db.Grup || {})) {
     const gf = g.gbFilter || {};
     for (const [type, mode] of Object.entries({
-      closeTime: "announcement",
-      openTime: "not_announcement"
+      close: "announcement",
+      open: "not_announcement"
     })) {
       const t = gf[type];
       if (t?.active && now >= t.until) {
@@ -56,10 +53,10 @@ setInterval(async () => {
           await conn.groupSettingUpdate(g.Id, mode);
           delete gf[type];
           await conn.sendMessage(g.Id, {
-            text: `✅ Grup telah *di${mode === "announcement" ? "tutup" : "buka"}* otomatis.`
+            text: `Grup telah *di${mode === "announcement" ? "tutup" : "buka"}* otomatis.`
           });
         } catch (err) {
-          console.error(`[AutoGroup] Error update setting:`, err);
+          console.error(`error update setting:`, err);
         }
       }
     }
@@ -67,54 +64,44 @@ setInterval(async () => {
 
   saveDB();
 
-  if (global.autoBackup && now % 864e5 < 6e4) {
-    try {
+  global.lastBackup = global.lastBackup || 0
+  const diff = now - global.lastBackup
+
+  if (global.autoBackup) {
+    if (diff >= 144e5) try {
       const { default: backup } = await import(`./plugins/owner/backup.js?update=${Date.now()}`),
             owners = (Array.isArray(global.ownerNumber) ? global.ownerNumber : [global.ownerNumber])
-              .map(n => n.replace(/\D/g, "") + "@s.whatsapp.net");
-
-      await backup.run(conn, {}, { chatInfo: { chatId: owners[0] } });
-    } catch (err) {
-      console.error("[AutoBackup] Error:", err);
-    }
+              .map(n => n.replace(/\D/g, "") + "@s.whatsapp.net")
+      await backup.run(conn, {}, { chatInfo: { chatId: owners[0] } })
+      global.lastBackup = now
+    } catch (err) {}
   }
 }, 6e4);
 
-const mute = async (chatId, senderId, conn) => {
-  const groupData = getGc(chatId);
-  if (!groupData?.mute) return !1;
-
-  const meta = await conn.groupMetadata(chatId),
-        isAdmin = meta.participants.some(p => p.admin && p.id === senderId);
-
-  return !1;
-};
-
-const isPublic = senderId => {
-  if (!global.public) {
-    const senderNumber = senderId.replace(/\D/g, "");
-    return !global.ownerNumber.includes(senderNumber);
+const xp = async (conn, msg, chatId, senderId, isGroup) => {
+  const groupData = getGc(chatId)
+  if (groupData?.mute) {
+    const meta = await conn.groupMetadata(chatId),
+          isAdmin = meta.participants.some(p => p.admin && p.id === senderId)
+    return !1
   }
-  return !1;
-};
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-const question = q => new Promise(res => rl.question(q, res));
+  if (!global.public) {
+    const senderNumber = (senderId || "").replace(/\D/g, "")
+    if (!global.ownerNumber.includes(senderNumber)) return !0
+  }
+  return !1
+}
 
 const startBot = async () => {
   try {
     const { state, saveCreds } = await useMultiFileAuthState("./session");
     conn = makeWASocket({
       auth: state,
-      version: [2,3000,1025150051],
+      version: [2e0, 3e3, 1.025150051e9],
       printQRInTerminal: !1,
       syncFullHistory: !1,
       markOnlineOnConnect: !1,
-      messageCache: 3750,
+      messageCache: 3.75e3,
       logger,
       browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
@@ -123,13 +110,20 @@ const startBot = async () => {
     store.bind(conn.ev);
 
     if (!state.creds?.me?.id) {
-      console.log(chalk.blueBright.bold("📱 Masukkan nomor bot WhatsApp Anda:"));
-      const phone = await normalizeNumber(await question("> ")),
-            code = await conn.requestPairingCode(phone);
-      console.log(
-        chalk.greenBright.bold("🔗 Kode Pairing:"),
-        code?.match(/.{1,4}/g)?.join("-") || code
-      );
+      try {
+        await new Promise(r => setTimeout(r, 10))
+    
+        console.log(chalk.blueBright.bold('Masukkan Nomor:'));
+        const num = await q('> '),
+              code = await conn.requestPairingCode(await normalizeNumber(num)),
+              show = (code || '').match(/.{1,4}/g)?.join('-') || ''
+
+        console.log(chalk.greenBright.bold('Pairing Code:'), chalk.cyanBright.bold(show))
+      } catch (e) {
+        if (e?.output?.statusCode === 428 || /Connection Closed/i.test(e?.message || ''))
+          return handleSessionIssue('Pairing timeout', startBot)
+        throw e
+      }
     }
 
     conn.reactionCache ??= new Map();
@@ -156,7 +150,7 @@ const startBot = async () => {
       const msgId = msg.key?.id
       if (["conversation", "extendedTextMessage", "imageMessage", "videoMessage"].some(t => msg.message?.[t])) {
         conn.reactionCache.set(msgId, msg)
-        setTimeout(() => conn.reactionCache.delete(msgId), 180000)
+        setTimeout(() => conn.reactionCache.delete(msgId), 1.8e5)
       }
 
       const time = Format.indoTime("Asia/Jakarta", "HH:mm"),
@@ -187,8 +181,7 @@ const startBot = async () => {
         () => Cc(conn, msg, textMessage)
       )
 
-      const publicFilter = async (_, __, ___, sid) => isPublic(sid)
-      for (const f of [groupFilter, badwordFilter, mute, publicFilter]) 
+      for (const f of [groupFilter, badwordFilter, xp])
         if (await f(conn, msg, chatId, senderId, isGroup)) return
 
       if (msg.message.reactionMessage) await rctKey(msg, conn)
@@ -200,7 +193,7 @@ const startBot = async () => {
         isGroup &&
         ownerSetting.forOwner &&
         ownerSetting.ownerNumber.includes(senderNumber) &&
-        Date.now() - (global.lastGreet[senderId] || 0) > 300000
+        Date.now() - (global.lastGreet[senderId] || 0) > 3e5
       ) {
         global.lastGreet[senderId] = Date.now()
         await conn.sendMessage(
@@ -216,7 +209,7 @@ const startBot = async () => {
 
       if (global.autoTyping) {
         await conn.sendPresenceUpdate("composing", chatId)
-        setTimeout(() => conn.sendPresenceUpdate("paused", chatId), 3000)
+        setTimeout(() => conn.sendPresenceUpdate("paused", chatId), 3e3)
       }
 
       await parallel(
@@ -248,8 +241,8 @@ const startBot = async () => {
           ) continue
           const allowRun =
             plugin.prefix === "both" ||
-            (plugin.prefix === false && !prefixUsed) ||
-            ((plugin.prefix !== "both" && plugin.prefix !== false) && prefixUsed)
+            (plugin.prefix === !1 && !prefixUsed) ||
+            ((plugin.prefix !== "both" && plugin.prefix !== !1) && prefixUsed)
           if (!allowRun) continue
           try {
             await plugin.run(conn, msg, { ...parsed, isPrefix, store })
@@ -265,8 +258,8 @@ const startBot = async () => {
       }
 
       for (const [parsed, prefixUsed] of [
-        [parseMessage(msg, isPrefix), true],
-        [parseNoPrefix(msg), false]
+        [parseMessage(msg, isPrefix), !0],
+        [parseNoPrefix(msg), !1]
       ]) {
         if (parsed) await runPlugin(parsed, prefixUsed)
       }
@@ -275,28 +268,45 @@ const startBot = async () => {
     conn.ev.on('group-participants.update', async ({ id: chatId, participants, action }) => {
       try {
         const w = enWelcome(chatId) && action === 'add',
-              l = enLeft(chatId) && ['remove', 'leave'].includes(action),
-              txt = w ? getWelTxt(chatId) : l ? getLeftTxt(chatId) : '';
-
-        if (txt) {
-          for (const p of participants) {
-            const t = `@${p.split('@')[0]}`;
-            await conn.sendMessage(chatId, {
-              text: txt.replace(/@user|%user/g, t).replace(/%time/g, Format.time()),
-              mentions: [p]
-            });
+              l = enLeft(chatId) && ['remove','leave'].includes(action)
+        if (!w && !l || !Array.isArray(participants)) return
+    
+        const { text, media } = w ? getWelTxt(chatId) : getLeftTxt(chatId)
+    
+        for (const p of participants) {
+          const jid = typeof p === 'string' ? p : (p?.phoneNumber || p?.id || p?.participant || p?.jid || '')
+          if (!jid) continue
+    
+          const t = `@${jid.split('@')[0]}`,
+                finalText = text.replace(/@user|%user/g, t).replace(/%time/g, Format.time())
+    
+          if (media) {
+            const pth = `./temp/${media}`,
+                  ext = path.extname(media).toLowerCase(),
+                  type = ext === '.mp4' || ext === '.gif' ? 'video'
+                       : ext === '.mp3' || ext === '.aac' || ext === '.ogg' ? 'audio'
+                       : 'image'
+    
+            if (fs.existsSync(pth)) {
+              if (type === 'audio') {
+                const buffer = fs.readFileSync(pth)
+                await vn(conn, chatId, buffer, null)
+              } else {
+                await conn.sendMessage(chatId, { [type]: { url: pth }, caption: finalText, mentions: [jid] })
+              }
+            } else {
+              await conn.sendMessage(chatId, { text: finalText, mentions: [jid] })
+            }
+          } else {
+            await conn.sendMessage(chatId, { text: finalText, mentions: [jid] })
           }
         }
-
-        if (['promote', 'demote'].includes(action)) {
-          global.groupCache = global.groupCache || new Map();
-          global.groupCache.delete(chatId);
-          await getMetadata(chatId, conn);
-        }
+    
+        ['promote','demote'].includes(action) && (global.groupCache = global.groupCache || new Map(), global.groupCache.delete(chatId), await getMetadata(chatId, conn))
       } catch (e) {
-        console.error('Error group-participants.update:', e);
+        console.log('Error welcome/left:', e)
       }
-    });
+    })
   } catch (error) {
     console.error(chalk.redBright.bold('❌ Error saat menjalankan bot:'), error);
   }
@@ -306,7 +316,7 @@ console.log(chalk.cyanBright.bold('Create By Dabi\n'));
 loadPlug();
 startBot();
 
-let file = __filename;
+let file = filename;
 fs.watchFile(file, () => {
-  console.log(chalk.yellowBright.inverse.italic(`[ PERUBAHAN TERDETEKSI ] ${__filename}, harap restart bot manual.`));
+  console.log(chalk.yellowBright.inverse.italic(`[ PERUBAHAN TERDETEKSI ] ${filename}, harap restart bot manual.`));
 });
