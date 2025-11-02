@@ -3,8 +3,9 @@ export default {
   command: ['bell'],
   tags: 'Ai Menu',
   desc: 'Mengaktifkan atau menonaktifkan fitur bell',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -13,50 +14,30 @@ export default {
     args
   }) => {
     try {
-      const { chatId, senderId, isGroup } = chatInfo;
-      if (!args[0] || !['on', 'off'].includes(args[0].toLowerCase())) {
-        return conn.sendMessage(chatId, {
-          text: `Gunakan format: ${prefix + commandText} <on/off>`
-        }, { quoted: msg });
-      }
+      const { chatId, senderId, isGroup } = chatInfo,
+            db = getDB(),
+            opt = args[0]?.toLowerCase()
 
-      const db = getDB();
-      const value = args[0].toLowerCase() === 'on';
+      if (!opt || !['on','off'].includes(opt))
+        return conn.sendMessage(chatId, { text: `Gunakan format: ${prefix + commandText} <on/off>` }, { quoted: msg })
 
+      const val = opt === 'on'
       if (isGroup) {
-        const groupKey = Object.keys(db.Grup).find(k => db.Grup[k].Id === chatId);
-        if (!groupKey) {
-          return conn.sendMessage(chatId, {
-            text: 'Grup ini belum terdaftar dalam database.'
-          }, { quoted: msg });
-        }
-
-        db.Grup[groupKey].bell = value;
-        saveDB();
-        return conn.sendMessage(chatId, {
-          text: `Fitur Bell untuk grup ini telah *${value ? 'diaktifkan' : 'dinonaktifkan'}*.`
-        }, { quoted: msg });
-
+        const key = Object.keys(db.Grup).find(k => db.Grup[k].Id === chatId)
+        if (!key)
+          return conn.sendMessage(chatId, { text: 'Grup ini belum terdaftar dalam database.' }, { quoted: msg })
+        db.Grup[key].bell = val, saveDB(),
+        await conn.sendMessage(chatId, { text: `Fitur Bell untuk grup ini telah *${val ? 'diaktifkan' : 'dinonaktifkan'}*.` }, { quoted: msg })
       } else {
-        const userKey = Object.keys(db.Private).find(k => db.Private[k].Nomor === senderId);
-        if (!userKey) {
-          return conn.sendMessage(chatId, {
-            text: 'Nomor kamu belum terdaftar dalam database.'
-          }, { quoted: msg });
-        }
-
-        db.Private[userKey].bell = value;
-        saveDB();
-        return conn.sendMessage(chatId, {
-          text: `Fitur Bell untuk kamu telah *${value ? 'diaktifkan' : 'dinonaktifkan'}*.`
-        }, { quoted: msg });
+        const key = Object.keys(db.Private).find(k => db.Private[k].Nomor === senderId)
+        if (!key)
+          return conn.sendMessage(chatId, { text: 'Nomor kamu belum terdaftar dalam database.' }, { quoted: msg })
+        db.Private[key].bell = val, saveDB(),
+        await conn.sendMessage(chatId, { text: `Fitur Bell untuk kamu telah *${val ? 'diaktifkan' : 'dinonaktifkan'}*.` }, { quoted: msg })
       }
-
-    } catch (err) {
-      console.error('[Bell Plugin]', err);
-      conn.sendMessage(chatId, {
-        text: 'Terjadi kesalahan saat memproses perintah.'
-      }, { quoted: msg });
+    } catch (e) {
+      console.error('[Bell Plugin]', e),
+      conn.sendMessage(chatId, { text: 'Terjadi kesalahan saat memproses perintah.' }, { quoted: msg })
     }
   }
-};
+}

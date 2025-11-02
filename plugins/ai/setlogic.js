@@ -1,18 +1,17 @@
-import fs from 'fs';
-const configPath = './toolkit/set/config.json';
-const aiSessionPath = './session/AiSesion.json';
+import fs from 'fs'
 
-function getConfig() {
-  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-}
+const configPath = './toolkit/set/config.json',
+      aiSessionPath = './session/AiSesion.json',
+      getConfig = () => JSON.parse(fs.readFileSync(configPath, 'utf8'))
 
 export default {
   name: 'setlogic',
   command: ['setlogic', 'set'],
   tags: 'Ai Menu',
   desc: 'Menyetel/menseting logika AI',
-  prefix: true,
-  owner: true,
+  prefix: !0,
+  owner: !0,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -21,31 +20,23 @@ export default {
     commandText,
     args
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    if (args.length === 0) {
-      const config = getConfig();
-      const botName = config.botSetting.botName || 'Bot';
-      const currentLogic = config.botSetting.logic || 'Belum disetel.';
+    const { chatId } = chatInfo,
+          config = getConfig(),
+          botName = config.botSetting.botName || 'Bot',
+          currentLogic = config.botSetting.logic || 'Belum disetel.'
 
-      return conn.sendMessage(chatId, {
-        text: `⚙️ Gunakan perintah:\n${prefix}${commandText} [teks logika]\n\n📌 Contoh:\n${prefix}${commandText} Ini adalah logika baru.\n\n*Logika saat ini [ ${botName} ]:*\n${currentLogic}`
-      }, { quoted: msg });
-    }
+    if (!args.length) return conn.sendMessage(chatId, {
+      text: `⚙️ Gunakan perintah:\n${prefix + commandText} [teks logika]\n\n📌 Contoh:\n${prefix + commandText} Ini adalah logika baru.\n\n*Logika saat ini [ ${botName} ]:*\n${currentLogic}`
+    }, { quoted: msg })
 
-    const newLogic = args.join(" ");
-
+    const newLogic = args.join(' ')
     try {
-      let config = getConfig();
-      config.botSetting.logic = newLogic;
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-      if (fs.existsSync(aiSessionPath)) {
-        fs.writeFileSync(aiSessionPath, JSON.stringify({}));
-      }
-
-      conn.sendMessage(chatId, { text: `✅ Logika AI berhasil diubah menjadi:\n\n"${newLogic}"` }, { quoted: msg });
-    } catch (error) {
-      conn.sendMessage(chatId, { text: "⚠️ Terjadi kesalahan saat menyimpan pengaturan!" }, { quoted: msg });
+      config.botSetting.logic = newLogic,
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2)),
+      fs.existsSync(aiSessionPath) && fs.writeFileSync(aiSessionPath, JSON.stringify({})),
+      conn.sendMessage(chatId, { text: `Logika AI berhasil diubah menjadi:\n\n"${newLogic}"` }, { quoted: msg })
+    } catch {
+      conn.sendMessage(chatId, { text: 'Terjadi kesalahan saat menyimpan pengaturan!' }, { quoted: msg })
     }
   }
-};
+}

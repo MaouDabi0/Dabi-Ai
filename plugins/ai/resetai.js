@@ -1,68 +1,54 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const sessionPath = path.join(__dirname, '../../temp/AiSesion.json');
+const sesi = path.join(dirname, '../temp/AiSesion.json')
 
 export default {
   name: 'resetai',
-  command: ['resetaichat', 'resetai'],
+  command: ['resetai', 'resetaichat'],
   tags: 'Ai Menu',
-  desc: 'Mereset sesi AI',
-  prefix: true,
-  owner: false,
-  premium: false,
+  desc: 'mereset sesi ai',
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
     args,
     prefix,
-    commandText
+    commandText,
+    chatInfo
   }) => {
+    const { senderId, chatId } = chatInfo
     try {
-      const { senderId, chatId } = chatInfo;
-      const session = JSON.parse(fs.readFileSync(sessionPath, 'utf-8'));
+      const sessi = JSON.parse(fs.readFileSync(sesi, 'utf-8')),
+            filterSys = (arr) => {
+              return arr.filter(item => item.role === 'system' && item.content.trim() !== '')
+            };
 
-      const filterSystemOnly = (arr) => {
-        return arr.filter(item => item.role === 'system' && item.content.trim() !== '');
-      };
-
-      if (commandText === 'resetai' && args[0] === 'all') {
-        for (let key in session) {
-          session[key] = filterSystemOnly(session[key]);
-        }
-        fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-        return conn.sendMessage(chatId, {
-          text: `Sesi AI semua pengguna berhasil direset.`
-        }, { quoted: msg });
-      }
-
-      if (commandText === 'resetaichat') {
-        if (!session[senderId]) {
-          return conn.sendMessage(chatId, {
-            text: 'Tidak ada sesi AI yang ditemukan untuk kamu.'
-          }, { quoted: msg });
+      if (
+        (commandText === 'resetai' && args[0] === 'all') ||
+        commandText === 'resetaichat'
+      ) {
+        if (commandText === 'resetai' && args[0] === 'all') {
+          for (const key in sessi) {
+            sessi[key] = filterSys(sessi[key])
+          }
+          fs.writeFileSync(sesi, JSON.stringify(sessi, null, 2))
+          return conn.sendMessage(chatId, { text: 'semua sesi pengguna berhasil di reset' }, { quoted: msg })
         }
 
-        session[senderId] = filterSystemOnly(session[senderId]);
-        fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-        return conn.sendMessage(chatId, {
-          text: 'Sesi AI kamu berhasil direset.'
-        }, { quoted: msg });
+        if (!sessi[senderId]) {
+          return conn.sendMessage(chatId, { text: 'tidak ada sesi yang ditemukan' }, { quoted: msg })
+        }
+
+        sessi[senderId] = filterSys(sessi[senderId])
+        fs.writeFileSync(sesi, JSON.stringify(sessi, null, 2))
+        return conn.sendMessage(chatId, { text: 'sesi kamu berhasil di reset' }, { quoted: msg })
       }
 
-      return conn.sendMessage(chatId, {
-        text: `Gunakan format:\n• ${prefix}resetaichat\n• ${prefix}resetai all`
-      }, { quoted: msg });
-
-    } catch (err) {
-      console.error(err);
-      conn.sendMessage(chatInfo.chatId, {
-        text: 'Terjadi kesalahan saat mereset sesi AI.'
-      }, { quoted: msg });
+      return conn.sendMessage(chatId, { text: `gunakan format:\n${btn} ${prefix}resetaichat\n${btn} ${prefix}resetai all` }, { quoted: msg })
+    } catch (e) {
+      conn.sendMessage(chatId, { text: `error pada reset ai: ${e}`})
     }
   }
-};
+}
