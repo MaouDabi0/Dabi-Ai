@@ -29,14 +29,19 @@
    ```bash
    pkg upgrade -y && pkg update -y
    ```
-2. install module
-```bash
-bash install.sh
-```
-3. start
-```bash
-npm start
-```
+2.Repo Clone
+
+   ```bash
+   git clone https://github.com/MaouDabi0/Dabi-Ai
+   ```
+3. install module
+   ```bash
+   bash install.sh
+   ```
+4. start
+   ```bash
+   npm start
+   ```
 
 ### manual
 Salin atau ketik promt seperti yang ada di bawah ini di termux
