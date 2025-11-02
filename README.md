@@ -29,6 +29,7 @@
    ```bash
    pkg upgrade -y && pkg update -y
    ```
+   
 2.Repo Clone
 
    ```bash
