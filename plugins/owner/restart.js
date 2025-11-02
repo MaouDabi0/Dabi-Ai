@@ -3,10 +3,12 @@ export default {
   command: ['restart', 'rt'],
   tags: 'Owner Menu',
   desc: 'Merestart bot',
-  prefix: true,
-  owner: true,
+  prefix: !0,
+  owner: !1,
 
-  run: async (conn, msg, { chatInfo }) => {
+  run: async (conn, msg, {
+    chatInfo
+  }) => {
     const { chatId } = chatInfo;
     await conn.sendMessage(chatId, { text: "🔄 Bot akan restart dalam 2 detik..." }, { quoted: msg });
     await new Promise(r => setTimeout(r, 2000));

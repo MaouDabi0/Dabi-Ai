@@ -1,42 +1,39 @@
-import fs from 'fs';
+import fs from 'fs'
 
 export default {
   name: 'unbanchat',
   command: ['unbanned', 'unban'],
   tags: 'Owner Menu',
   desc: 'Unban user dengan menghapus ban: true di database',
-  prefix: true,
-  owner: true,
+  prefix: !0,
+  owner: !0,
 
   run: async (conn, msg, {
     chatInfo,
     args
   }) => {
-    const { chatId, senderId } = chatInfo;
+    const { chatId, senderId } = chatInfo,
+          nomorTarget = args[0] ? await normalizeNumber(args[0]) : await normalizeNumber(target(msg, senderId)),
+          dbData = getDB()
+    let found = !1
+
     try {
-      if (!args[0] && !msg.message?.extendedTextMessage?.contextInfo)
-        return conn.sendMessage(chatId, { text: 'Reply/tag atau tulis nomor untuk diunbanned' }, { quoted: msg });
-
-      const nomorTarget = args[0] ? await normalizeNumber(args[0]) : await normalizeNumber(target(msg, senderId));
-      const dbData = getDB();
-      let found = false;
-
-      for (const key in dbData.Private) {
-        if (dbData.Private[key].Nomor.replace(/@s\.whatsapp\.net$/i, '') === nomorTarget) {
-          dbData.Private[key].ban = false;
-          found = true;
-          break;
-        }
-      }
-
-      if (!found)
-        return conn.sendMessage(chatId, { text: 'Nomor tidak ditemukan di database' }, { quoted: msg });
-
-      saveDB();
-      conn.sendMessage(chatId, { text: `Berhasil unbanned nomor: +${nomorTarget}` }, { quoted: msg });
-    } catch (e) {
-      console.error(e);
-      conn.sendMessage(chatId, { text: 'Terjadi kesalahan saat memproses unbanned' }, { quoted: msg });
+      return !args[0] && !msg.message?.extendedTextMessage?.contextInfo
+        ? conn.sendMessage(chatId, { text: 'Reply/tag atau tulis nomor untuk diunbanned' }, { quoted: msg })
+        : (() => {
+            for (const key in dbData.Private) 
+              if (dbData.Private[key].Nomor.replace(/@s\.whatsapp\.net$/i, '') === nomorTarget) {
+                dbData.Private[key].ban = !1, found = !0
+                break
+              }
+            return !found
+              ? conn.sendMessage(chatId, { text: 'Nomor tidak ditemukan di database' }, { quoted: msg })
+              : (saveDB(),
+                 conn.sendMessage(chatId, { text: `Berhasil unbanned nomor: +${nomorTarget}` }, { quoted: msg }))
+          })()
+    } catch(e) {
+      console.error(e)
+      conn.sendMessage(chatId, { text: 'Terjadi kesalahan saat memproses unbanned' }, { quoted: msg })
     }
   }
-};
+}

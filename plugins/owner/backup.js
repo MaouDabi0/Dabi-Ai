@@ -1,66 +1,63 @@
-import fs from "fs";
-import path from "path";
+import fs from 'fs'
+import path from 'path'
 import AdmZip from "adm-zip";
 
+const temp = path.join(dirname, '../temp')
+
 export default {
-  name: "backup",
-  command: ["backup"],
-  tags: "Owner Menu",
-  desc: "Backup data bot",
-  prefix: true,
-  owner: true,
+  name: 'Backup',
+  command: ['backup'],
+  tags: 'Owner Menu',
+  desc: 'backup sc',
+  prefix: !0,
+  owner: !0,
+  premium: !1,
 
-  run: async (conn, msg, { chatInfo }) => {
-    const { chatId } = chatInfo;
-    const botName = global.botName.replace(/\s+/g, "_");
-    const vers = global.version.replace(/\s+/g, ".");
-    const zipName = `${botName}-${vers}(${time}).zip`;
-
-    const tempFolder = path.join(global.__dirname, "../../temp");
-    if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
-
-    const zipPath = path.join(tempFolder, zipName);
-
+  run: async (conn, msg, {
+    chatInfo,
+  }) => {
     try {
-      const zip = new AdmZip();
-      const files = [
-        "plugins",
-        "toolkit",
-        "package.json",
-        "index.js",
-        "main.js",
-        "README.md",
-        "LICENSE"
-      ];
+      const name = global.botName.replace(/\s+/g, '_'),
+            vers = global.version.replace(/\s+/g, '.'),
+            time = Format.time(),
+            zipName = `${name}-${vers}(${time}).zip`;
 
-      for (const item of files) {
-        const fullPath = path.join(global.__dirname, "../", item);
-        console.log(fullPath)
-        if (fs.existsSync(fullPath)) {
-          const isDir = fs.lstatSync(fullPath).isDirectory();
-          isDir ? zip.addLocalFolder(fullPath, item) : zip.addLocalFile(fullPath);
+      if (!fs.existsSync(temp)) fs.mkdirSync(temp, { recursive: !0 })
+
+      const p = path.join(temp, zipName),
+            zip = new AdmZip(),
+            file = [
+              'plugins',
+              'toolkit',
+              'LICENSE',
+              'README.md',
+              'index.js',
+              'main.js',
+              'package.json'
+            ]
+
+      for (const item of file) {
+        const full = path.join(dirname, '../', item)
+        if (fs.existsSync(full)) {
+          const dir = fs.lstatSync(full).isDirectory()
+          dir ? zip.addLocalFolder(full, item) : zip.addLocalFile(full)
         }
       }
 
-      zip.writeZip(zipPath);
+      zip.writeZip(p)
 
-      await conn.sendMessage(
-        chatId,
-        {
-          document: fs.readFileSync(zipPath),
+      conn.sendMessage(chatInfo.chatId, {
+        document: fs.readFileSync(p),
           mimetype: "application/zip",
           fileName: zipName,
           caption: `Backup berhasil dibuat.\nNama file: ${zipName}`
-        },
-        msg && msg.key ? { quoted: msg } : {}
-      );
+      }, msg && msg.key ? { quoted: msg } : {})
 
       setTimeout(() => {
-        if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-      }, 5000);
-    } catch (err) {
-      console.error("Backup Error:", err);
-      conn.sendMessage(chatId, { text: "Gagal membuat backup." }, { quoted: msg });
+        if (fs.existsSync(p)) fs.unlinkSync(p)
+      }, 5e3)
+    } catch (e) {
+      console.log('error pada backup', e)
     }
   }
-};
+}

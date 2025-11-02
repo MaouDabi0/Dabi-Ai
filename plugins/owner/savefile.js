@@ -7,53 +7,47 @@ export default {
   command: ['savefile', 'sf'],
   tags: 'Owner Menu',
   desc: 'Menulis ulang file.',
-  prefix: true,
-  owner: true,
+  prefix: !0,
+  owner: !0,
 
-  run: async (conn, msg, { chatInfo, args }) => {
-    const { chatId } = chatInfo;
-
-    if (!args.length) {
-      return conn.sendMessage(chatId, { text: 'Masukkan path file!' }, { quoted: msg });
-    }
-
-    const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
-    if (!quotedMessage) {
-      return conn.sendMessage(chatId, { text: 'Kutip pesan berisi teks!' }, { quoted: msg });
-    }
-
-    const baseDir = path.resolve('./');
-    const filePath = path.resolve(baseDir, args.join(' '));
-
-    if (!filePath.startsWith(baseDir)) {
-      return conn.sendMessage(chatId, { text: 'Akses file di luar BaseBot tidak diizinkan!' }, { quoted: msg });
-    }
-
+  run: async (conn, msg, {
+    chatInfo,
+    args
+  }) => {
+    const { chatId } = chatInfo,
+          quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation,
+          baseDir = path.resolve('./'),
+          filePath = args.length ? path.resolve(baseDir, args.join(' ')) : '',
+          inBase = filePath.startsWith(baseDir);
     let statusMsg;
+
+    if (!args.length || !quoted || !inBase)
+      return conn.sendMessage(chatId, { text: 
+        !args.length
+          ? 'Masukkan path file!'
+          : !quoted
+            ? 'Kutip pesan berisi teks!'
+            : 'Akses file di luar BaseBot tidak diizinkan!'
+      }, { quoted: msg });
+
     try {
       const status = await conn.sendMessage(chatId, { text: 'Menyimpan file...' }, { quoted: msg });
-      statusMsg = status.key;
+      statusMsg = status.key,
+      fs.writeFileSync(filePath, quoted, 'utf8');
 
-      fs.writeFileSync(filePath, quotedMessage, 'utf8');
+      const fileUrl = pathToFileURL(filePath).href,
+            updated = await import(`${fileUrl}?update=${Date.now()}`);
 
-      const fileUrl = pathToFileURL(filePath).href;
-      const updatedModule = await import(`${fileUrl}?update=${Date.now()}`);
-
-      if (global.plugins && updatedModule.default?.name) {
-        global.plugins[updatedModule.default.name] = updatedModule.default;
-      }
+      updated.default?.name && global.plugins && (global.plugins[updated.default.name] = updated.default);
 
       const savedText = `File berhasil disimpan\nPath: ${filePath.replace(baseDir + '/', '')}`;
       await conn.sendMessage(chatId, { text: savedText, edit: statusMsg }, { quoted: msg });
-
-    } catch (error) {
-      console.error(error);
-      const errorMsg = { text: 'Terjadi kesalahan saat menyimpan file' };
-      if (statusMsg) {
-        await conn.sendMessage(chatId, { ...errorMsg, edit: statusMsg });
-      } else {
-        await conn.sendMessage(chatId, { ...errorMsg, quoted: msg });
-      }
+    } catch (e) {
+      console.error(e);
+      const errText = { text: 'Terjadi kesalahan saat menyimpan file' };
+      statusMsg
+        ? await conn.sendMessage(chatId, { ...errText, edit: statusMsg })
+        : await conn.sendMessage(chatId, { ...errText, quoted: msg });
     }
   }
 };

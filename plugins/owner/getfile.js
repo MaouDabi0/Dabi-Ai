@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs'
 import path from 'path';
 
 export default {
@@ -6,47 +6,39 @@ export default {
   command: ['getfile', 'gf'],
   tags: 'Owner Menu',
   desc: 'Menampilkan isi file dalam bentuk teks',
-  prefix: true,
-  owner: true,
+  prefix: !0,
+  owner: !0,
 
   run: async (conn, msg, {
     chatInfo,
     args
   }) => {
-    const { chatId } = chatInfo;
+    const { chatId } = chatInfo,
+          baseDir = path.resolve('./'),
+          filePath = args.length ? path.resolve(baseDir, args.join(' ')) : '';
 
-    if (!args.length) {
-      return conn.sendMessage(chatId, { text: '⚠️ Masukkan path file yang ingin diambil!' }, { quoted: msg });
-    }
-
-    const baseDir = path.resolve('./');
-    const filePath = path.resolve(baseDir, args.join(' '));
-
-    if (!filePath.startsWith(baseDir)) {
-      return conn.sendMessage(chatId, { text: '⚠️ Akses file di luar direktori BaseBot tidak diizinkan!' }, { quoted: msg });
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return conn.sendMessage(chatId, { text: '❌ File tidak ditemukan!' }, { quoted: msg });
-    }
-
-    if (fs.lstatSync(filePath).isDirectory()) {
-      return conn.sendMessage(chatId, { text: '❌ Path adalah direktori, bukan file!' }, { quoted: msg });
-    }
+    if (!args.length || !filePath.startsWith(baseDir) || !fs.existsSync(filePath) || fs.lstatSync(filePath).isDirectory())
+      return conn.sendMessage(chatId, { text: 
+        !args.length
+          ? 'Masukkan path file yang ingin diambil!'
+          : !filePath.startsWith(baseDir)
+            ? 'Akses file di luar direktori BaseBot tidak diizinkan!'
+            : !fs.existsSync(filePath)
+              ? 'File tidak ditemukan!'
+              : 'Path adalah direktori, bukan file!'
+      }, { quoted: msg });
 
     try {
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const filePathDisplay = filePath.replace(baseDir + '/', '');
+      const fileContent = fs.readFileSync(filePath, 'utf8'),
+            filePathDisplay = filePath.replace(baseDir + '/', ''),
+            maxLength = 4e3;
 
-      await conn.sendMessage(chatId, { text: `📄 *Path File:* ${filePathDisplay}` }, { quoted: msg });
+      await conn.sendMessage(chatId, { text: `Path File: ${filePathDisplay}` }, { quoted: msg });
 
-      const maxLength = 4000;
-      for (let i = 0; i < fileContent.length; i += maxLength) {
-        const chunk = fileContent.slice(i, i + maxLength);
-        await conn.sendMessage(chatId, { text: chunk }, { quoted: msg });
-      }
+      for (let i = 0; i < fileContent.length; i += maxLength)
+        await conn.sendMessage(chatId, { text: fileContent.slice(i, i + maxLength) }, { quoted: msg });
     } catch (e) {
-      conn.sendMessage(chatId, { text: '⚠️ Terjadi kesalahan saat membaca file!' }, { quoted: msg });
+      conn.sendMessage(chatId, { text: 'Terjadi kesalahan saat membaca file!' }, { quoted: msg });
     }
   }
 };
