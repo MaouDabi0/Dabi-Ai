@@ -1,66 +1,46 @@
-import { proto } from '@whiskeysockets/baileys';
+import { proto } from '@whiskeysockets/baileys'
 
 export default {
   name: 'back',
   command: ['bck', 'back'],
   tags: 'Group Menu',
   desc: 'Join grup dari link invite atau kirim pesan promosi jika sudah bergabung',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
-  run: async (conn, msg, { chatInfo }) => {
-    const { chatId, senderId } = chatInfo;
-
+  run: async (conn, msg, {
+    chatInfo
+  }) => {
+    const { chatId, senderId } = chatInfo
     try {
-      const { userAdmin } = await exGrup(conn, chatId, senderId);
-      if (!userAdmin) {
-        return conn.sendMessage(chatId, { text: 'Kamu bukan Admin!' }, { quoted: msg });
-      }
+      const { userAdmin } = await exGrup(conn, chatId, senderId)
+      if (!userAdmin) return conn.sendMessage(chatId, { text: 'Kamu bukan Admin!' }, { quoted: msg })
 
-      const contextInfo = msg?.message?.extendedTextMessage?.contextInfo;
-      const quoted = contextInfo?.quotedMessage;
+      const ctx = msg?.message?.extendedTextMessage?.contextInfo,
+            quoted = ctx?.quotedMessage,
+            regex = /(https:\/\/chat\.whatsapp\.com\/[0-9A-Za-z]+)/,
+            link = quoted?.extendedTextMessage?.matchedText || quoted?.extendedTextMessage?.text?.match(regex)?.[0]
 
-      let link = quoted?.extendedTextMessage?.matchedText;
-      if (!link) {
-        const regex = /(https:\/\/chat\.whatsapp\.com\/[0-9A-Za-z]+)/;
-        link = quoted?.extendedTextMessage?.text?.match(regex)?.[0];
-      }
+      if (!link) return conn.sendMessage(chatId, { text: 'Tidak ada link grup valid yang ditemukan di reply.' }, { quoted: msg })
 
-      if (!link) {
-        return conn.sendMessage(chatId, { text: 'Tidak ada link grup valid yang ditemukan di reply.' }, { quoted: msg });
-      }
+      const inviteCode = link.split('/')[3].split('?')[0],
+            res = await conn.groupGetInviteInfo(inviteCode)
+      if (!res) return conn.sendMessage(chatId, { text: 'Tidak bisa mengambil info grup dari link.' }, { quoted: msg })
 
-      const inviteCode = link.split('/')[3].split('?')[0];
-      const response = await conn.groupGetInviteInfo(inviteCode);
+      const jid = res.id,
+            groups = Object.keys(conn.groupMetadata ? conn.groupMetadata : {}),
+            teks = `Izin min, gabung yuk di grup bot wa aku!\n\nBot aktif 24 jam, bisa untuk bisnis, online, dan hiburan.\n\nBck tadi\n\nKlik link di bawah ini untuk gabung: https://chat.whatsapp.com/HWkHNig33fv1nozmxADq38`
 
-      if (!response) {
-        return conn.sendMessage(chatId, { text: 'Tidak bisa mengambil info grup dari link.' }, { quoted: msg });
-      }
+      !groups.includes(jid)
+        ? (await conn.groupAcceptInvite(inviteCode),
+           await conn.sendMessage(chatId, { text: `Berhasil join ke grup: ${res.subject}` }, { quoted: msg }))
+        : null
 
-      const jid = response.id;
-      const groups = Object.keys(conn.groupMetadata ? conn.groupMetadata : {});
-
-      const teks = `ɪᴢɪɴ ᴍɪɴ 
-ɢᴀʙᴜɴɢ ʏᴜᴋ ᴅɪ ɢʀᴜᴘ ʙᴏᴛ ᴡᴀ ᴀᴋᴜ! 
-
-ʙᴏᴛ ᴀᴋᴛɪꜰ
-* 24/ᴊᴀᴍ 
-* ʙɪꜱᴀ ᴜɴᴛᴜᴋ ʙɪꜱɴɪꜱ, ᴏɴʟɪɴᴇ, ᴅᴀɴ ʜɪʙᴜʀᴀɴ 
-
-ʙᴄᴋ ᴛᴀᴅɪ
-
-ᴋʟɪᴋ ʟɪɴᴋ ɴʏᴀ ᴅɪ ʙᴀᴡᴀʜ ɪɴɪ ᴜɴᴛᴜᴋ ɢᴀʙᴜɴɢ: https://chat.whatsapp.com/HWkHNig33fv1nozmxADq38`;
-
-      if (!groups.includes(jid)) {
-        await conn.groupAcceptInvite(inviteCode);
-        await conn.sendMessage(chatId, { text: `Berhasil join ke grup: ${response.subject}` }, { quoted: msg });
-      }
-
-      await conn.sendMessage(jid, { text: teks }, { quoted: msg });
-      await conn.sendMessage(chatId, { text: 'Pesan promosi terkirim ke grup tersebut.' }, { quoted: msg });
-
+      await conn.sendMessage(jid, { text: teks }, { quoted: msg }),
+      await conn.sendMessage(chatId, { text: 'Pesan promosi terkirim ke grup tersebut.' }, { quoted: msg })
     } catch (e) {
-      return conn.sendMessage(chatId, { text: 'Terjadi error saat memproses link grup.' }, { quoted: msg });
+      return conn.sendMessage(chatId, { text: 'Terjadi error saat memproses link grup.' }, { quoted: msg })
     }
   }
-};
+}

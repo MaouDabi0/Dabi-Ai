@@ -3,8 +3,9 @@ export default {
   command: ['badword', 'antibadword'],
   tags: 'Group Menu',
   desc: 'Mengatur fitur anti badword dalam grup',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -12,60 +13,35 @@ export default {
     commandText,
     args
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    if (!isGroup) return conn.sendMessage(chatId, { text: 'Perintah ini hanya untuk grup!' }, { quoted: msg });
+    const { chatId, senderId, isGroup } = chatInfo,
+          send = t => conn.sendMessage(chatId, { text: t }, { quoted: msg }),
+          db = getDB(),
+          gc = getGc(db, chatId),
+          { botAdmin, userAdmin } = await exGrup(conn, chatId, senderId)
 
-    const groupData = getGc(getDB(), chatId);
-    if (!groupData) return conn.sendMessage(chatId, { text: `Grup belum terdaftar.\nGunakan *${prefix}daftargc*.` }, { quoted: msg });
+    if (!isGroup || !gc || !userAdmin || !botAdmin)
+      return send(!isGroup ? 'Perintah ini hanya untuk grup!' :
+              !gc ? `Grup belum terdaftar.\nGunakan ${prefix}daftargc.` :
+              !userAdmin ? 'Kamu bukan admin.' :
+              'Bot bukan admin.')
 
-    const { botAdmin, userAdmin } = await exGrup(conn, chatId, senderId);
-    if (!userAdmin) return conn.sendMessage(chatId, { text: 'Kamu bukan Admin!' }, { quoted: msg });
-    if (!botAdmin) return conn.sendMessage(chatId, { text: 'Bot bukan admin!' }, { quoted: msg });
+    const input = args[0]?.toLowerCase() || '',
+          antibw = gc.antibadword ??= { badword: !1, badwordText: '' }
 
-    const input = args[0]?.toLowerCase();
-    groupData.antibadword ??= { badword: false, badwordText: '' };
+    if (!input) return send(`Penggunaan:\n${prefix + commandText} <on/off>\n${prefix + commandText} set <kata>\n${prefix + commandText} reset`)
 
-    if (!input) {
-      return conn.sendMessage(chatId, {
-        text: `Penggunaan:
-${prefix}${commandText} <on/off>
-${prefix}${commandText} set <kata>
-${prefix}${commandText} reset`
-      }, { quoted: msg });
-    }
-
-    const send = (text) => conn.sendMessage(chatId, { text }, { quoted: msg });
-
-    switch (input) {
-      case 'on':
-      case 'off':
-        groupData.antibadword.badword = input === 'on';
-        saveDB();
-        return send(`Fitur antibadword ${input === 'on' ? 'diaktifkan' : 'dinonaktifkan'}.`);
-
-      case 'set': {
-        const word = args.slice(1).join(' ').toLowerCase();
-        if (!word) return send('Masukkan kata yang ingin ditambahkan.');
-        const words = groupData.antibadword.badwordText
-          .split(',')
-          .map(w => w.trim())
-          .filter(Boolean);
-        if (words.includes(word)) return send(`Kata "${word}" sudah ada.`);
-        words.push(word);
-        groupData.antibadword.badwordText = words.join(', ');
-        saveDB();
-        return send(`Kata "${word}" ditambahkan.`);
-      }
-
-      case 'reset':
-        groupData.antibadword.badwordText = '';
-        saveDB();
-        return send('Daftar badword direset.');
-
-      default:
-        return send(
-          `Perintah tidak dikenal.\nGunakan:\n${prefix}${commandText} <on/off>\n${prefix}${commandText} set <kata>\n${prefix}${commandText} reset`
-        );
-    }
+    input === 'on' || input === 'off' ? (
+      antibw.badword = input === 'on' ? !0 : !1,
+      saveDB(),
+      send(`Fitur antibadword ${input === 'on' ? 'diaktifkan' : 'dinonaktifkan'}.`)
+    ) : input === 'set' ? (() => {
+      const word = args.slice(1e0).join(' ').toLowerCase(),
+            words = antibw.badwordText.split(',').map(w => w.trim()).filter(Boolean)
+      return !word ? send('Masukkan kata yang ingin ditambahkan.') :
+             words.includes(word) ? send(`Kata "${word}" sudah ada.`) :
+             (words.push(word), antibw.badwordText = words.join(', '), saveDB(), send(`Kata "${word}" ditambahkan.`))
+    })() : input === 'reset' ? (
+      antibw.badwordText = '', saveDB(), send('Daftar badword direset.')
+    ) : send(`Perintah tidak dikenal.\nGunakan:\n${prefix + commandText} <on/off>\n${prefix + commandText} set <kata>\n${prefix + commandText} reset`)
   }
-};
+}

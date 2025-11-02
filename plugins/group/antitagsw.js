@@ -3,8 +3,8 @@ export default {
   command: ['antitagsw'],
   tags: 'Group Menu',
   desc: 'Fitur anti tag status WhatsApp (Tag SW)',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -14,24 +14,23 @@ export default {
   }) => {
     const { chatId, senderId, isGroup } = chatInfo;
 
-    if (!isGroup) 
+    if (!isGroup)
       return conn.sendMessage(chatId, { text: 'Perintah ini hanya bisa digunakan dalam grup!' }, { quoted: msg });
 
     const groupData = getGc(getDB(), chatId);
-    if (!groupData) 
+    if (!groupData)
       return conn.sendMessage(chatId, { text: `Grup belum terdaftar di database.\nGunakan *${prefix}daftargc* untuk mendaftar.` }, { quoted: msg });
 
     const { botAdmin, userAdmin } = await exGrup(conn, chatId, senderId);
-    if (!userAdmin) return conn.sendMessage(chatId, { text: 'Kamu bukan Admin!' }, { quoted: msg });
-    if (!botAdmin) return conn.sendMessage(chatId, { text: 'Bot bukan admin!' }, { quoted: msg });
+    if (!userAdmin || !botAdmin)
+      return conn.sendMessage(chatId, { text: !userAdmin ? 'Kamu bukan Admin!' : 'Bot bukan admin!' }, { quoted: msg });
 
     const input = args[0]?.toLowerCase();
-    if (!['on', 'off'].includes(input)) 
+    if (!['on', 'off'].includes(input))
       return conn.sendMessage(chatId, { text: `Penggunaan:\n${prefix}${commandText} <on/off>` }, { quoted: msg });
 
-    groupData.gbFilter ??= {};
-    groupData.gbFilter.antiTagSw = input === 'on';
-    saveDB();
+    groupData.gbFilter ??= {},
+    groupData.gbFilter.antiTagSw = input === 'on', saveDB();
 
     return conn.sendMessage(chatId, { text: `Fitur anti tag SW berhasil di-${input === 'on' ? 'aktifkan' : 'nonaktifkan'}.` }, { quoted: msg });
   }

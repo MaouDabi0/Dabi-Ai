@@ -1,75 +1,77 @@
+import fs from 'fs'
+import path from 'path'
+import { downloadMediaMessage } from '@whiskeysockets/baileys'
+import { writeFile } from 'fs/promises'
+
 export default {
   name: 'left',
   command: ['left'],
   tags: 'Group Menu',
-  desc: 'Mengatur fitur pesan keluar grup',
-  prefix: true,
-  premium: false,
+  desc: 'Mengatur pesan keluar grup',
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    args,
+    prefix
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    if (!isGroup) {
-      return conn.sendMessage(chatId, { text: "Perintah ini hanya bisa digunakan di dalam grup!" }, { quoted: msg });
-    }
+    try {
+      const { chatId, senderId, isGroup } = chatInfo,
+            db = getDB(),
+            groupData = getGc(db, chatId),
+            sub = args[0]?.toLowerCase()
 
-    const groupData = getGc(getDB(), chatId);
+      if (!isGroup || !groupData) return conn.sendMessage(chatId, { text: !isGroup ? "Perintah ini hanya bisa digunakan di dalam grup!" : "Grup belum terdaftar di database.\nGunakan perintah .daftargc untuk mendaftar." }, { quoted: msg })
 
-    if (!groupData) {
-      return conn.sendMessage(chatId, { text: "Grup belum terdaftar.\nGunakan *.daftargc* untuk mendaftar." }, { quoted: msg });
-    }
+      const { userAdmin } = await exGrup(conn, chatId, senderId)
+      if (!userAdmin) return conn.sendMessage(chatId, { text: 'Kamu bukan Admin!' }, { quoted: msg })
 
-    const { userAdmin } = await exGrup(conn, chatId, senderId);
-    if (!userAdmin) {
-      return conn.sendMessage(chatId, { text: 'Kamu bukan Admin!' }, { quoted: msg });
-    }
+      groupData.gbFilter = groupData.gbFilter || { Welcome: { welcome: !1, welcomeText: '', content: { media: '' } }, Left: { gcLeft: !1, leftText: '', content: { media: '' } } }
+      const leftObj = groupData.gbFilter.Left
 
-    const sub = args[0]?.toLowerCase();
-    groupData.gbFilter ??= {};
-    groupData.gbFilter.Left ??= { gcLeft: false, leftText: '' };
-    const leftConfig = groupData.gbFilter.Left;
+      if (sub === 'on' || sub === 'off') return leftObj.gcLeft = sub === 'on' ? !0 : !1, saveDB(), conn.sendMessage(chatId, { text: `Fitur pesan keluar ${sub === 'on' ? 'diaktifkan' : 'dinonaktifkan'}!` }, { quoted: msg })
 
-    const saveAndReply = (text) => {
-      saveDB();
-      return conn.sendMessage(chatId, { text }, { quoted: msg });
-    };
-
-    switch (sub) {
-      case "on":
-        leftConfig.gcLeft = true;
-        return saveAndReply("Fitur pesan keluar diaktifkan!");
-
-      case "off":
-        leftConfig.gcLeft = false;
-        return saveAndReply("Fitur pesan keluar dinonaktifkan!");
-
-      case "set": {
-        const newText = textMessage.replace(`${prefix}${commandText} set`, "").trim();
-        if (!newText) {
-          return conn.sendMessage(chatId, { text: "Gunakan perintah:\n.left set <teks selamat tinggal>" }, { quoted: msg });
+      if (sub === 'set' || sub === 'reset') {
+        if (sub === 'reset') {
+          leftObj.content?.media && fs.existsSync(path.join(process.cwd(), 'temp', leftObj.content.media)) && fs.unlinkSync(path.join(process.cwd(), 'temp', leftObj.content.media))
+          leftObj.gcLeft = !1, leftObj.leftText = '', leftObj.content.media = '', saveDB()
+          return conn.sendMessage(chatId, { text: "Pesan dan media keluar telah direset!" }, { quoted: msg })
         }
-        Object.assign(leftConfig, { gcLeft: true, leftText: newText });
-        return saveAndReply(`Pesan selamat tinggal diperbarui:\n\n${newText}`);
+
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+              mediaMessage = quoted || msg.message,
+              foundMediaKey = ['imageMessage','videoMessage','audioMessage'].find(k => mediaMessage?.[k]),
+              mediaType = foundMediaKey ? foundMediaKey.replace('Message','').toLowerCase() : null,
+              caption = (args?.slice(1)?.join(' ')?.trim() || mediaMessage?.[foundMediaKey]?.caption || ''),
+              allowedMime = ['image/jpeg','image/jpg','image/png','video/mp4','audio/mp3','audio/aac','audio/ogg','audio/mpeg'],
+              isValidMedia = mediaType && foundMediaKey ? allowedMime.includes(mediaMessage[foundMediaKey]?.mimetype) : !1
+
+        if (!caption && !isValidMedia) return conn.sendMessage(chatId, { text: "Gunakan perintah:\n.left set <teks>\nAtau reply / kirim media (mp4, mp3, jpeg, jpg, png) untuk atur pesan keluar." }, { quoted: msg })
+
+        leftObj.gcLeft = !0, leftObj.leftText = caption || ''
+
+        if (isValidMedia) {
+          let buffer = null
+          try { buffer = await downloadMediaMessage({ message: mediaMessage }, 'buffer') } catch {}
+          if (buffer) {
+            const tempDir = path.join(process.cwd(), 'temp'),
+                  ext = (mediaMessage[foundMediaKey]?.mimetype || 'image/jpeg').split('/')[1] || 'jpg',
+                  safeName = String((await conn.groupMetadata(chatId))?.subject || 'group').replace(/\s+/g,'_').replace(/[^\w\-\.]/g,''),
+                  timeStamp = Format.indoTime("Asia/Jakarta", "HH:mm"),
+                  filePath = path.join(tempDir, `${safeName}-left(${timeStamp}).${ext}`)
+            !fs.existsSync(tempDir) && fs.mkdirSync(tempDir, { recursive: !0 })
+            await writeFile(filePath, buffer), leftObj.content.media = `${safeName}-left(${timeStamp}).${ext}`
+          }
+        }
+
+        return saveDB(), conn.sendMessage(chatId, { text: `Pesan keluar diperbarui!\n\n${caption || '(tanpa teks)'}` }, { quoted: msg })
       }
 
-      case "restart":
-        Object.assign(leftConfig, { gcLeft: true, leftText: "Selamat tinggal @user!" });
-        return saveAndReply("Pesan selamat tinggal direset ke default!");
-
-      default:
-        return conn.sendMessage(chatId, {
-          text:
-            `Penggunaan:\n` +
-            `${prefix}${commandText} on → Aktifkan pesan keluar\n` +
-            `${prefix}${commandText} off → Nonaktifkan pesan keluar\n` +
-            `${prefix}${commandText} set <teks> → Atur teks pesan keluar\n` +
-            `${prefix}${commandText} restart → Reset teks pesan keluar ke default`
-        }, { quoted: msg });
+      return conn.sendMessage(chatId, { text: `Penggunaan:\n${prefix}left on → Aktifkan pesan keluar\n${prefix}left off → Nonaktifkan pesan keluar\n${prefix}left set <teks> → Atur teks atau reply/kirim media\n${prefix}left reset → Reset teks & media pesan keluar` }, { quoted: msg })
+    } catch (e) {
+      return conn.sendMessage(chatInfo.chatId, { text: `Error: ${e.message || e}` }, { quoted: msg })
     }
   }
-};
+}
