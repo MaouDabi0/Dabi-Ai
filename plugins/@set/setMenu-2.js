@@ -22,13 +22,13 @@ export default {
         footer: footer,
         contextInfo: {
           forwardingScore: 999,
-          isForwarded: true,
+          isForwarded: !0,
           externalAdReply: {
             body: `Ini Menu ${botFullName}`,
             thumbnailUrl: thumbnail,
             thumbnail: thumbnailBuffer,
             mediaType: 1,
-            renderLargerThumbnail: true,
+            renderLargerThumbnail: !0,
             mediaUrl: chShort,
           },
           forwardedNewsletterMessageInfo: {

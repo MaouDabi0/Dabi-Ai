@@ -8,10 +8,10 @@ export default {
           body: `Ini Adalah Menu ${botName}`,
           thumbnailUrl: thumbnail,
           mediaType: 2,
-          renderLargerThumbnail: true,
+          renderLargerThumbnail: !0,
         },
         forwardingScore: 1,
-        isForwarded: true,
+        isForwarded: !0,
         forwardedNewsletterMessageInfo: {
           newsletterJid: idCh
         }
