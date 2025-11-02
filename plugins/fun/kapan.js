@@ -3,8 +3,9 @@ export default {
   command: ['kapan yah', 'kapan'],
   tags: 'Fun Menu',
   desc: 'Sambung kata dengan bot',
-  prefix: false,
-  premium: false,
+  prefix: !1,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -13,18 +14,14 @@ export default {
     args
   }) => {
     try {
-      const { when } = await global.loadFunctions();
-      const { chatId, senderId, isGroup } = chatInfo;
-      const kapan = when[Math.floor(Math.random() * when.length)];
+      const { when } = await global.loadFunctions(),
+            { chatId, senderId, isGroup } = chatInfo,
+            kapan = when[Math.floor(Math.random() * when.length)];
 
       await conn.sendMessage(chatId, { text: kapan }, { quoted: msg });
-
     } catch (error) {
       console.error('Error:', error);
-      conn.sendMessage(msg.key.remoteJid, {
-        text: `Error: ${error.message || error}`,
-        quoted: msg,
-      });
+      conn.sendMessage(msg.key.remoteJid, { text: `Error: ${error.message || error}`, quoted: msg });
     }
   }
-}
+};

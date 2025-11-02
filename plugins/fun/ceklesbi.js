@@ -3,8 +3,9 @@ export default {
   command: ['ceklesbi'],
   tags: 'Fun Menu',
   desc: 'Cek seberapa lesbi seseorang',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -14,36 +15,21 @@ export default {
     args
   }) => {
     try {
-      const { chatId, senderId, isGroup } = chatInfo;
-      let targetId = target(msg, senderId);
-      const mentionTarget = targetId;
-      const persentase = Math.floor(Math.random() * 101);
+      const { chatId, senderId } = chatInfo,
+            targetId = target(msg, senderId),
+            mentionTarget = targetId,
+            persentase = Math.floor(Math.random() * 101),
+            komentar = persentase <= 25 ? 'Masih aman lu mbak'
+                      : persentase <= 44 ? 'Agak lain lu mbak'
+                      : persentase <= 72 ? 'Waduh warga pelangi?'
+                      : persentase <= 88 ? 'Fiks lesbi'
+                      : 'Hati² orang lesbi',
+            teks = `*Cek seberapa lesbi* @${mentionTarget}\n\n*${persentase}%* Lesbi\n_${komentar}_`
 
-      let komentar;
-      if (persentase <= 25) {
-        komentar = 'Masih aman lu mbak';
-      } else if (persentase <= 44) {
-        komentar = 'Agak lain lu mbak';
-      } else if (persentase <= 72) {
-        komentar = 'Waduh warga pelangi?';
-      } else if (persentase <= 88) {
-        komentar = 'Fiks lesbi';
-      } else {
-        komentar = 'Hati² orang lesbi';
-      }
-
-      const teks = `*Cek seberapa lesbi* @${mentionTarget}\n\n*${persentase}%* Lesbi\n_${komentar}_`;
-
-      await conn.sendMessage(chatId, {
-        text: teks,
-        mentions: [`${targetId}@s.whatsapp.net`]
-      }, { quoted: msg });
-    } catch (error) {
-      console.error('Error:', error);
-      conn.sendMessage(msg.key.remoteJid, {
-        text: `Error: ${error.message || error}`,
-        quoted: msg,
-      });
+      await conn.sendMessage(chatId, { text: teks, mentions: [`${targetId}@s.whatsapp.net`] }, { quoted: msg })
+    } catch (err) {
+      console.error('Error:', err),
+      conn.sendMessage(msg.key.remoteJid, { text: `Error: ${err.message || err}` }, { quoted: msg })
     }
   }
-};
+}

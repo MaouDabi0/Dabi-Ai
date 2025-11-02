@@ -3,39 +3,25 @@ export default {
   command: ['ceksigma'],
   tags: 'Fun Menu',
   desc: 'Cek seberapa sigma seseorang',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    chatInfo
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    let targetId = target(msg, senderId);
-    const mentionTarget = targetId;
-    const persentase = Math.floor(Math.random() * 101);
+    const { chatId, senderId } = chatInfo,
+          targetId = target(msg, senderId),
+          mentionTarget = targetId,
+          persentase = Math.floor(Math.random() * 1e2 + 1)
 
-    let komentar;
-    if (persentase <= 25) {
-      komentar = 'Masih cupu';
-    } else if (persentase <= 44) {
-      komentar = 'Lumayan alpha';
-    } else if (persentase <= 72) {
-      komentar = 'Wih calon sigma!';
-    } else if (persentase <= 88) {
-      komentar = 'Sigma sejati!';
-    } else {
-      komentar = 'Hati² Alpha Overlord!';
-    }
+    let komentar = persentase <= 25 ? 'Masih cupu'
+                 : persentase <= 44 ? 'Lumayan alpha'
+                 : persentase <= 72 ? 'Wih calon sigma!'
+                 : persentase <= 88 ? 'Sigma sejati!'
+                 : 'Hati² Alpha Overlord!',
+        teks = `Cek seberapa sigma @${mentionTarget}\n\n${persentase}% Sigma\n_${komentar}_`
 
-    const teks = `Cek seberapa sigma @${mentionTarget}\n\n${persentase}% Sigma\n_${komentar}_`;
-
-    conn.sendMessage(chatId, {
-      text: teks,
-      mentions: [`${targetId}@s.whatsapp.net`]
-    }, { quoted: msg });
+    await conn.sendMessage(chatId, { text: teks, mentions: [`${targetId}@s.whatsapp.net`] }, { quoted: msg })
   }
-};
+}

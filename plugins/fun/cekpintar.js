@@ -3,47 +3,29 @@ export default {
   command: ['cekpinter', 'cekpintar', 'cekkepintaran'],
   tags: 'Fun Menu',
   desc: 'Cek seberapa pinter orang',
-  prefix: true,
-  owner: false,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    chatInfo
   }) => {
     try {
-      const { chatId, senderId, isGroup } = chatInfo;
-      let targetId = target(msg, senderId);
-      const mentionTarget = targetId;
-      const persentase = Math.floor(Math.random() * 101);
-      let komentar;
-      if (persentase <= 25) {
-        komentar = 'Gak tolol² amat lah';
-      } else if (persentase <= 44) {
-        komentar = 'Masih mending';
-      } else if (persentase <= 72) {
-        komentar = 'Pinter juga lu';
-      } else if (persentase <= 88) {
-        komentar = 'Tumben pinter';
-      } else {
-        komentar = 'Orang c*na sih ini!';
-      }
+      const { chatId, senderId } = chatInfo,
+            targetId = target(msg, senderId),
+            mentionTarget = targetId,
+            persentase = Math.floor(Math.random() * 101),
+            komentar = persentase <= 25 ? 'Gak tolol² amat lah'
+                      : persentase <= 44 ? 'Masih mending'
+                      : persentase <= 72 ? 'Pinter juga lu'
+                      : persentase <= 88 ? 'Tumben pinter'
+                      : 'Orang c*na sih ini!',
+            teks = `*Seberapa pintar* @${mentionTarget}\n\n*${persentase}%* pintar\n_${komentar}_`
 
-      const teks = `*Seberapa pintar* @${mentionTarget}\n\n*${persentase}%* pintar\n_${komentar}_`;
-
-      await conn.sendMessage(chatId, {
-      text: teks,
-      mentions: [`${targetId}@s.whatsapp.net`]
-    }, { quoted: msg });
-    } catch (error) {
-      console.error('Error:', error);
-      conn.sendMessage(msg.key.remoteJid, {
-        text: `Error: ${error.message || error}`,
-        quoted: msg,
-      });
+      await conn.sendMessage(chatId, { text: teks, mentions: [`${targetId}@s.whatsapp.net`] }, { quoted: msg })
+    } catch (err) {
+      console.error('Error:', err),
+      conn.sendMessage(msg.key.remoteJid, { text: `Error: ${err.message || err}` }, { quoted: msg })
     }
   }
 }

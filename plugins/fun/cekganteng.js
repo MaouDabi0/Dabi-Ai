@@ -3,8 +3,9 @@ export default {
   command: ['cekganteng'],
   tags: 'Fun Menu',
   desc: 'Cek seberapa ganteng seseorang',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
@@ -13,29 +14,16 @@ export default {
     commandText,
     args
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    let targetId = target(msg, senderId);
-    const mentionTarget = targetId;
-    const persentase = Math.floor(Math.random() * 101);
+    const { chatId, senderId } = chatInfo,
+          targetId = target(msg, senderId),
+          persentase = Math.floor(Math.random() * 1.01e2),
+          komentar = persentase <= 25 ? 'Masih biasa aja'
+                    : persentase <= 44 ? 'Lumayan lah'
+                    : persentase <= 72 ? 'Ganteng juga kamu'
+                    : persentase <= 88 ? 'Wah ganteng banget'
+                    : 'Calon Oppa Korea!',
+          teks = `*Seberapa ganteng* @${targetId}\n\n*${persentase}%* Ganteng\n_${komentar}_`
 
-    let komentar;
-    if (persentase <= 25) {
-      komentar = 'Masih biasa aja';
-    } else if (persentase <= 44) {
-      komentar = 'Lumayan lah';
-    } else if (persentase <= 72) {
-      komentar = 'Ganteng juga kamu';
-    } else if (persentase <= 88) {
-      komentar = 'Wah ganteng banget';
-    } else {
-      komentar = 'Calon Oppa Korea!';
-    }
-
-    const teks = `*Seberapa ganteng* @${mentionTarget}\n\n*${persentase}%* Ganteng\n_${komentar}_`;
-
-    await conn.sendMessage(chatId, {
-      text: teks,
-      mentions: [`${targetId}@s.whatsapp.net`]
-    }, { quoted: msg });
+    await conn.sendMessage(chatId, { text: teks, mentions: [`${targetId}@s.whatsapp.net`] }, { quoted: msg })
   }
-};
+}

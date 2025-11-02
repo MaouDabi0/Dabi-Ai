@@ -3,39 +3,24 @@ export default {
   command: ['cektolol'],
   tags: 'Fun Menu',
   desc: 'Cek seberapa tolol seseorang',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    chatInfo
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
-    let targetId = target(msg, senderId);
-    const mentionTarget = targetId;
-    const persentase = Math.floor(Math.random() * 101);
+    const { chatId, senderId } = chatInfo,
+          targetId = target(msg, senderId),
+          mention = `${targetId}@s.whatsapp.net`,
+          pct = Math.floor(Math.random() * 1.01e2),
+          komentar = pct <= 25 ? 'Masih pinter kok'
+                    : pct <= 44 ? 'Agak bego dikit'
+                    : pct <= 72 ? 'Aduh tolol nih'
+                    : pct <= 88 ? 'Fix goblok'
+                    : 'Hati² idiot tingkat dewa',
+          teks = `Cek seberapa tolol @${targetId}\n\n${pct}% Tolol\n_${komentar}_`;
 
-    let komentar;
-    if (persentase <= 25) {
-      komentar = 'Masih pinter kok';
-    } else if (persentase <= 44) {
-      komentar = 'Agak bego dikit';
-    } else if (persentase <= 72) {
-      komentar = 'Aduh tolol nih';
-    } else if (persentase <= 88) {
-      komentar = 'Fix goblok';
-    } else {
-      komentar = 'Hati² idiot tingkat dewa';
-    }
-
-    const teks = `Cek seberapa tolol @${mentionTarget}\n\n${persentase}% Tolol\n_${komentar}_`;
-
-    conn.sendMessage(chatId, {
-      text: teks,
-      mentions: [`${targetId}@s.whatsapp.net`]
-    }, { quoted: msg });
+    conn.sendMessage(chatId, { text: teks, mentions: [mention] }, { quoted: msg });
   }
 };

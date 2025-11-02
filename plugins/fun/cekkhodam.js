@@ -3,46 +3,33 @@ export default {
   command: ['cekkodam', 'cekkhodam'],
   tags: 'Fun Menu',
   desc: 'Cek kodam pengguna',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    chatInfo
   }) => {
     try {
-      const { cekKhodam } = await global.loadFunctions();
+      const { cekKhodam } = await global.loadFunctions(),
+            { chatId, senderId } = chatInfo,
+            targetId = target(msg, senderId),
+            mentionTarget = targetId,
+            cek = cekKhodam[Math.floor(Math.random() * cekKhodam.length)],
+            delay = ms => new Promise(r => setTimeout(r, ms)),
+            teksAwal = `Bentar tak terawang dulu...`,
+            teksAkhir = `_Pengecekan Khodam untuk @${mentionTarget} telah selesai!_\n\nHasil terawangan menunjukkan bahwa Khodam yang mendampingi @${mentionTarget} adalah *${cek}*`,
+            { key } = await conn.sendMessage(chatId, { text: teksAwal, mentions: [`${targetId}@s.whatsapp.net`] }, { quoted: msg })
 
-      const { chatId, senderId } = chatInfo;
-      let targetId = target(msg, senderId);
-      const mentionTarget = targetId;
-
-      const cek = cekKhodam[Math.floor(Math.random() * cekKhodam.length)];
-      const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-      const teks2 = `Bentar tak terawang dulu...`;
-      const teks = `_Pengecekan Khodam untuk @${mentionTarget}⁩ telah berhasil_!\n\nSetelah melalui penelusuran spiritual yang mendalam, diketahui bahwa Khodam yang mendampingi @${mentionTarget} adalah *${cek}*`;
-
-      await conn.sendMessage(chatId, {
-        text: teks2,
-        mentions: [`${targetId}@s.whatsapp.net`]
-      }, { quoted: msg });
-
-      await delay(3000);
-
-      await conn.sendMessage(chatId, {
-        text: teks,
-        mentions: [`${targetId}@s.whatsapp.net`]
-      }, { quoted: msg });
-    } catch (error) {
-      console.error('Error pada cekKhodam:', error);
-      conn.sendMessage(msg.key.remoteJid, {
-        text: `Error pada cekKhodam: ${error.message || error}`,
-        quoted: msg,
-      });
+      await delay(3e3),
+      await conn.sendMessage(chatId, { 
+        edit: key, 
+        text: teksAkhir, 
+        mentions: [`${targetId}@s.whatsapp.net`] 
+      })
+    } catch (err) {
+      console.error('Error cekKhodam:', err),
+      conn.sendMessage(chatInfo.chatId, { text: `Error cekKhodam: ${err.message || err}` }, { quoted: msg })
     }
   }
-};
+}
