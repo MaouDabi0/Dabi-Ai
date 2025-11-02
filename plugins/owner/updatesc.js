@@ -15,11 +15,15 @@ export default {
     args
   }) => {
     const { chatId } = chatInfo;
-    if (args.length < 2) return conn.sendMessage(chatId, { text: 'Format: .update file.js urlGithub' }, { quoted: msg });
+    if (args.length < 1) return conn.sendMessage(chatId, { text: 'Format: .update file.js [urlGithub]' }, { quoted: msg });
 
-    const [targetPath, githubUrl] = args,
-          baseDir = path.resolve(dirname, '../'),
+    let [targetPath, githubUrl] = args;
+    const baseDir = path.resolve(dirname, '../'),
           fullPath = path.resolve(baseDir, targetPath);
+
+    if (!githubUrl) {
+      githubUrl = 'https://github.com/MaouDabi0/Dabi-Ai';
+    }
 
     if (!fullPath.startsWith(baseDir)) return conn.sendMessage(chatId, { text: 'Akses ditolak.' }, { quoted: msg });
     if (!fs.existsSync(fullPath)) return conn.sendMessage(chatId, { text: 'File tidak ditemukan.' }, { quoted: msg });
