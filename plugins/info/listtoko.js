@@ -1,43 +1,44 @@
-import fs from 'fs';
-const tokoPath = './toolkit/set/toko.json';
+import fs from 'fs'
+const tokoPath = './toolkit/set/toko.json'
 
 export default {
   name: 'listtoko',
   command: ['listtoko', 'daftartoko'],
   tags: 'Info Menu',
   desc: 'Menampilkan daftar toko yang terdaftar',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
-    prefix,
     args
   }) => {
-    const { chatId } = chatInfo;
+    const { chatId } = chatInfo,
+          exists = fs.existsSync,
+          read = fs.readFileSync,
+          parse = JSON.parse,
+          notFound = 'File toko.json tidak ditemukan.',
+          noStore = 'Belum ada toko yang terdaftar.',
+          invalid = 'Nomor toko tidak valid!'
 
-    if (!fs.existsSync(tokoPath)) {
-      return conn.sendMessage(chatId, { text: "File toko.json tidak ditemukan." }, { quoted: msg });
-    }
+    if (!exists(tokoPath)) return conn.sendMessage(chatId, { text: notFound }, { quoted: msg })
 
-    const data = JSON.parse(fs.readFileSync(tokoPath));
-    const tokoList = Object.keys(data.storeSetting || {});
+    const data = parse(read(tokoPath)),
+          tokoList = Object.keys(data.storeSetting || {})
 
-    if (tokoList.length === 0) {
-      return conn.sendMessage(chatId, { text: "Belum ada toko yang terdaftar." }, { quoted: msg });
-    }
+    if (!tokoList.length) return conn.sendMessage(chatId, { text: noStore }, { quoted: msg })
 
     if (args[0]) {
-      const idx = parseInt(args[0]) - 1;
-      if (isNaN(idx) || !tokoList[idx]) {
-        return conn.sendMessage(chatId, { text: "Nomor toko tidak valid!" }, { quoted: msg });
-      }
-      return conn.sendMessage(chatId, { text: `${tokoList[idx]} adalah toko nomor ${args[0]}.` }, { quoted: msg });
+      const idx = parseInt(args[0]) - 1e0
+      return (isNaN(idx) || !tokoList[idx])
+        ? conn.sendMessage(chatId, { text: invalid }, { quoted: msg })
+        : conn.sendMessage(chatId, { text: `${tokoList[idx]} adalah toko nomor ${args[0]}.` }, { quoted: msg })
     }
 
-    const daftar = tokoList.map((toko, i) => `${side}${btn} ${i + 1}. ${toko}`).join('\n');
-    const teks = `${head}${Obrack} list toko ${Cbrack}\n${daftar}\n${foot}${garis}`;
+    const daftar = tokoList.map((toko, i) => `${i + 1e0}. ${toko}`).join('\n'),
+          teks = `Daftar toko terdaftar:\n${daftar}`
 
-    conn.sendMessage(chatId, { text: teks }, { quoted: msg });
+    conn.sendMessage(chatId, { text: teks }, { quoted: msg })
   }
-};
+}

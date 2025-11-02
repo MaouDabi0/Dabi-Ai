@@ -3,34 +3,29 @@ export default {
   command: ['listgc', 'listgroup'],
   tags: 'Info Menu',
   desc: 'Melihat semua grup yang bot masuki',
-  prefix: true,
-  premium: true,
+  prefix: !0,
+  owner: !1,
+  premium: !0,
 
   run: async (conn, msg, {
-    chatInfo,
-    textMessage,
-    prefix,
-    commandText,
-    args
+    chatInfo
   }) => {
-    const { chatId, senderId, isGroup } = chatInfo;
+    const { chatId } = chatInfo
     try {
-      const groups = await conn.groupFetchAllParticipating();
-      const groupList = Object.values(groups);
+      const groups = await conn.groupFetchAllParticipating(),
+            groupList = Object.values(groups)
 
-      if (groupList.length === 0) {
-        return conn.sendMessage(chatId, { text: '📌 Bot tidak tergabung dalam grup mana pun.' }, { quoted: msg });
-      }
-
-      let response = `📋 *Daftar Grup yang Bot Ikuti:*\n\n`;
-      groupList.forEach((group, index) => {
-        response += `${index + 1}. *${group.subject}*\n   📌 ID: ${group.id}\n   👥 Member: ${group.size}\n\n`;
-      });
-
-      conn.sendMessage(chatId, { text: response }, { quoted: msg });
+      return !groupList.length
+        ? conn.sendMessage(chatId, { text: 'Bot tidak tergabung dalam grup mana pun.' }, { quoted: msg })
+        : (() => {
+            const response = groupList.map((g, i) => 
+              `${i + 1e0}. ${g.subject}\n   ID: ${g.id}\n   Member: ${g.size}`
+            ).join('\n\n')
+            conn.sendMessage(chatId, { text: `Daftar Grup yang Bot Ikuti:\n\n${response}` }, { quoted: msg })
+          })()
     } catch (err) {
-      console.error(err);
-      conn.sendMessage(chatId, { text: '❌ Gagal mengambil daftar grup. Coba lagi nanti.' }, { quoted: msg });
+      console.error(err)
+      conn.sendMessage(chatId, { text: 'Gagal mengambil daftar grup. Coba lagi nanti.' }, { quoted: msg })
     }
   }
-};
+}

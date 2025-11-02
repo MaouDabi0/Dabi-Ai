@@ -3,33 +3,26 @@ export default {
   command: ['topuang', 'topsaldo', 'topmoney'],
   tags: 'Info Menu',
   desc: 'Menampilkan 10 besar pemegang uang terbanyak',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
-  run: async (conn, msg, { chatInfo }) => {
-    const { chatId } = chatInfo
-    try {
-      const db = getDB()
-      const users = Object.entries(db.Private || {})
-        .map(([name, data]) => ({
-          name,
-          uang: data?.money?.amount || 0
-        }))
-        .sort((a, b) => b.uang - a.uang)
-        .slice(0, 10)
+  run: async (conn, msg, {
+    chatInfo
+  }) => {
+    const { chatId } = chatInfo,
+          db = getDB(),
+          users = Object.entries(db.Private || {})
+            .map(([name, data]) => ({ name, uang: data?.money?.amount || 0 }))
+            .sort((a, b) => b.uang - a.uang)
+            .slice(0, 1e1)
 
-      if (!users.length) {
-        return conn.sendMessage(chatId, { text: 'Belum ada data uang di database.' }, { quoted: msg })
-      }
-
-      const teks = users
-        .map((u, i) => `${i + 1}. ${u.name} - Rp: ${u.uang.toLocaleString('id-ID')}`)
-        .join('\n')
-
-      await conn.sendMessage(chatId, { text: `*🏆 Top 10 Pemegang Uang Terbanyak 🏆*\n\n${teks}` }, { quoted: msg })
-    } catch (e) {
-      console.error('[PLUGIN][topuang]', e)
-      conn.sendMessage(chatId, { text: 'Terjadi kesalahan saat mengambil data top uang.' }, { quoted: msg })
-    }
+    return !users.length
+      ? conn.sendMessage(chatId, { text: 'Belum ada data uang di database.' }, { quoted: msg })
+      : (() => {
+          const teks = users.map((u, i) => `${i + 1e0}. ${u.name} - Rp ${u.uang.toLocaleString('id-ID')}`).join('\n'),
+                text = `Top 10 Pemegang Uang Terbanyak\n\n${teks}`
+          conn.sendMessage(chatId, { text }, { quoted: msg })
+        })()
   }
 }

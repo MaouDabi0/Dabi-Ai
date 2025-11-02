@@ -1,46 +1,46 @@
-import fetch from 'node-fetch';
+import fetch from 'node-fetch'
 
 export default {
   name: 'cuaca',
   command: ['cuaca', 'cekcuaca'],
   tags: 'Tools Menu',
   desc: 'Cek cuaca berdasarkan nama kota',
-  prefix: true,
-  premium: false,
+  prefix: !0,
+  owner: !1,
+  premium: !1,
 
   run: async (conn, msg, {
     chatInfo,
-    textMessage,
-    prefix,
-    commandText,
     args
   }) => {
     try {
-      const { chatId } = chatInfo;
-      const kota = args.join(' ') || 'jakarta';
-      const url = `https://api.ureshii.my.id/api/internet/cuaca?kota=${encodeURIComponent(kota)}`;
-      const res = await fetch(url);
-      const json = await res.json();
+      const { chatId } = chatInfo,
+            kota = args.join(' ')
 
-      if (!json.status || !json.data) {
-        return await conn.sendMessage(chatId, { text: `Gagal mendapatkan data cuaca untuk kota: ${kota}` }, { quoted: msg });
+      if (!kota) {
+        return conn.sendMessage(chatId, { text: 'masukan nama kota' }, { quoted: msg })
       }
 
-      const data = json.data;
-      const teks = `*Cuaca Hari Ini di ${data.lokasi}, ${data.negara}*\n\n` +
-                   `🌤️ *Cuaca:* ${data.cuaca}\n` +
-                   `🌡️ *Suhu Saat Ini:* ${data.suhu_saat_ini}°C\n` +
-                   `🔥 *Suhu Tertinggi:* ${data.suhu_tertinggi}°C\n` +
-                   `❄️ *Suhu Terendah:* ${data.suhu_terendah}°C\n` +
-                   `💧 *Kelembapan:* ${data.kelembapan}%\n` +
-                   `🌬️ *Kecepatan Angin:* ${data.angin} m/s\n\n` +
-                   `Semoga harimu menyenangkan! Jangan lupa bawa payung kalau cuacanya mendung ya! ☂️`;
+      const url = `https://api.ureshii.my.id/api/internet/info-cuaca?kota=${encodeURIComponent(kota)}`,
+            res = await fetch(url),
+            d = await res.json()
 
-      await conn.sendMessage(chatId, { text: teks }, { quoted: msg });
+      if (!d.kota || !d.cuaca) return conn.sendMessage(chatId, { text: `Gagal mendapatkan data cuaca untuk kota: ${kota}` }, { quoted: msg })
 
-    } catch (err) {
-      console.error(err);
-      await conn.sendMessage(chatInfo.chatId, { text: 'Terjadi kesalahan saat mengambil data cuaca.' }, { quoted: msg });
+      let text = `*Cuaca Hari Ini di\n\n`
+          text += `${head} ${Obrack}${d.kota}, ${d.negara}${Cbrack}*\n${body}\n`
+          text += `${body} 🌤️ *Cuaca:* ${d.cuaca}\n`
+          text += `${body}💧 *Kelembapan:* ${d.kelembapan}%\n`
+          text += `${body} 🌬️ *Kecepatan Angin:* ${d.angin_kpj} m/s\n`
+          text += `${body} 🌡️ *Suhu Saat Ini:* ${d.suhu_c}°C\n`
+          text += `${body} 🔥 *Suhu Tertinggi:* ${d.suhu_tertinggi_c}°C\n`
+          text += `${body}❄️ *Suhu Terendah:* ${d.suhu_terendah_c}°C\n${body}\n`
+          text += `${foot}${garis}\n\n`
+          text += `Semoga harimu menyenangkan! Jangan lupa bawa payung kalau cuacanya mendung ya! ☂️`
+
+      await conn.sendMessage(chatId, { text }, { quoted: msg })
+    } catch (e) {
+      conn.sendMessage(chatInfo.chatId, { text: 'Terjadi kesalahan saat mengambil data cuaca.' }, { quoted: msg })
     }
   }
-};
+}
