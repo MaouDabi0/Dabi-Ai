@@ -14,7 +14,7 @@
 - Suport Termux
 - Ringan
 - Type Plugins
-- Menggunakan Code CJS
+- Menggunakan Code ESM
 
 [![MaouDabi GitHub](https://github-readme-stats.vercel.app/api?username=maoudabi0\&show_icons=true\&theme=default#gh-light-mode-only)](https://github.com/maoudabi0/Dabi-Ai#responsive-card-theme#gh-light-mode-only)
 
