@@ -33,7 +33,9 @@ export default {
       const mime = media.mimetype || 'application/octet-stream',
             ext = mime.includes('image') ? 'jpg' : mime.includes('video') ? 'mp4' : 'bin',
             tempDir = path.join(dirname, '../temp/'),
-            tempFile = path.join(tempDir, `tourl_${Date.now()}.${ext}`);
+            tempFile = path.join(tempDir, `tourl_${Date.now()}.${ext}`),
+            key = 'AIzaBj7z2z3xBjsk',
+            url = 'https://c.termai.cc'
 
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: !0 });
       await fs.promises.writeFile(tempFile, buffer);
@@ -41,7 +43,7 @@ export default {
       const form = new FormData();
       form.append('file', fs.createReadStream(tempFile), { filename: `file.${ext}` });
 
-      const { data } = await axios.post(`${termaiWeb}/api/upload?key=${termaiKey}`, form, { headers: form.getHeaders() });
+      const { data } = await axios.post(`${url}/api/upload?key=${key}`, form, { headers: form.getHeaders() });
       await fs.promises.unlink(tempFile);
 
       if (data?.status && data?.path) return conn.sendMessage(chatId, { text: `URL:\n${data.path}` }, { quoted: msg });
