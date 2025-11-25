@@ -1,0 +1,25 @@
+{
+  "name": "Dabi-Ai",
+  "version": "1.4.0",
+  "description": "Script Interactive Ai From 2025",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index"
+  },
+  "keywords": [],
+  "author": "Yuli",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "axios": "^1.12.2",
+    "baileys": "7.0.0-rc.3",
+    "chalk": "^5.6.2",
+    "file-type": "^21.0.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "moment-timezone": "^0.6.0",
+    "node-fetch": "^3.3.2",
+    "node-webpmux": "^3.2.1",
+    "qs": "^6.14.0"
+  }
+}
