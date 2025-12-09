@@ -3,10 +3,98 @@ import path from 'path'
 import { execSync } from 'child_process'
 import { performance } from 'perf_hooks'
 import moment from 'moment-timezone'
-import { db } from '../../system/db/data.js'
+import { getGc, saveGc} from '../../system/db/data.js'
+import { groupCache } from '../../system/function.js'
 import os from 'os'
 
 export default function info(ev) {
+  ev.on({
+    name: 'cekgc',
+    cmd: ['cekgc'],
+    tags: 'Info Menu',
+    desc: 'mengecek status grup',
+    owner: !1,
+    prefix: !0,
+
+    run: async (xp, m, {
+      chat
+    }) => {
+      try {
+        const gcData = getGc(chat),
+              metadata = groupCache.get(chat.id),
+              name = metadata.subject,
+              member = metadata.participants.length,
+              { usrAdm, botAdm } = await grupify(xp, chat.id, chat.sender),
+              defThumb = 'https://c.termai.cc/i0/7DbG.jpg'
+
+        if (!chat.group || !gcData || !usrAdm || !botAdm) {
+          return xp.sendMessage(
+            chat.id,
+            {
+              text: !chat.group
+                ? 'perintah ini hanya bisa digunakan digrup'
+                : !gcData
+                  ? 'grup ini belum terdaftar'
+                  : !usrAdm
+                    ? 'kamu bukan admin'
+                    : 'aku bukan admin'
+            },
+            { quoted: m }
+          )
+        }
+
+        let txt = `${head} ${opb} *Informasi Grup* ${clb}\n`
+            txt += `${body} ${btn} *Nama: ${name}*\n`
+            txt += `${body} ${btn} *Id: ${gcData?.id}*\n`
+            txt += `${body} ${btn} *Diban: ${gcData?.ban ? 'Iya' : 'Tidak'}*\n`
+            txt += `${body} ${btn} *Member: ${gcData?.member}*\n`
+            txt += `${foot}${line}\n`
+            txt += `${head} ${opb} *Pengaturan Grup* ${clb}\n`
+            txt += `${body} ${btn} *Anti Link: ${gcData?.filter?.antilink ? 'Aktif' : 'Tidak'}*\n`
+            txt += `${body} ${btn} *Anti TagSw: ${gcData?.filter?.antitagsw ? 'Aktif' : 'Tidak'}*\n`
+            txt += `${body} ${btn} *Leave: ${gcData?.filter?.left?.leftGc ? 'Aktif' : 'Tidak'}*\n`
+            txt += `${body} ${btn} *Welcome: ${gcData?.filter?.welcome?.welcomeGc ? 'Aktif' : 'Tidak'}*\n`
+            txt += `${foot}${line}`
+
+        let thumb = await xp.profilePictureUrl(metadata.id, 'image') || defThumb,
+            oldName = name,
+            newName = metadata.subject
+
+        await xp.sendMessage(chat.id, {
+          text: txt,
+          contextInfo: {
+            externalAdReply: {
+              body: `Ini adalah informasi grup ${name}`,
+              thumbnailUrl: thumb,
+              mediaType: 1,
+              renderLargerThumbnail: !0
+            },
+            forwardingScore: 1,
+            isForwarded: !0,
+            forwardedNewsletterMessageInfo: {
+              newsletterJid: idCh
+            }
+          }
+        })
+
+        if (gcData.member === metadata?.participants.length) {
+          return
+        }
+        gcData.member = metadata.participants.length
+        saveGc()
+
+        if (oldName !== newName) {
+          gc().key[newName] = gc().key[oldName]
+          delete gc().key[oldName]
+          saveGc()
+        }
+      } catch (e) {
+        err('error pada cekgc', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
   ev.on({
     name: 'help',
     cmd: ['help'],
@@ -53,7 +141,7 @@ export default function info(ev) {
         }
 
         let txt = `${head} ${opb} *I N F O R M A S I* ${clb}\n`
-            txt += `${body} ${btn} *Nama: ${found.name || '-'}\n*`
+            txt += `${body} ${btn} *Nama: ${found.name || '-'}*\n`
             txt += `${body} ${btn} *Cmd: ${Array.isArray(found.cmd) ? found.cmd.map(c => '.' + c).join(', ') : '-'}*\n`
             txt += `${body} ${btn} *Tags: ${found.tags || '-'}*\n`
             txt += `${body} ${btn} *Deskripsi: ${found.desc || '-'}*\n`
@@ -221,21 +309,23 @@ export default function info(ev) {
         const name = chat.pushName || m.pushName,
               nomor = data.jid,
               noId = base64(data.noId),
+              cmd = data.cmd,
               ban = type(data.ban),
               ai = type(data.ai?.bell),
               chatAi = data.ai.chat,
-              affinity = data.ai.affinity,
-              role = data.ai.role
+              role = data.ai.role,
+              money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR'}).format(data?.money ?? 0)
 
         let txt = `${head} ${opb} *P R O F I L E* ${clb}\n`
             txt += `${body} ${btn} *Nama:* ${name}\n`
             txt += `${body} ${btn} *Nomor:* ${nomor}\n`
             txt += `${body} ${btn} *No ID:* ${noId}\n`
+            txt += `${body} ${btn} *Cmd:* ${cmd}\n`
             txt += `${body} ${btn} *Ban:* ${ban}\n`
+            txt += `${body} ${btn} *Money:* ${money}\n`
             txt += `${body}\n`
             txt += `${body} ${btn} *Ai:* ${ai}\n`
             txt += `${body} ${btn} *Chat Ai:* ${chatAi}\n`
-            txt += `${body} ${btn} *Affinity:* ${affinity}\n`
             txt += `${body} ${btn} *Role:* ${role}\n`
             txt += `${foot}${line}`
 

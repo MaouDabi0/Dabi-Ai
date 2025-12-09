@@ -2,12 +2,50 @@ import fs from 'fs'
 import path from 'path'
 import AdmZip from "adm-zip"
 import { exec } from 'child_process'
-import { db, saveDb, getGc, saveGc } from '../../system/db/data.js'
+import { getGc, saveGc } from '../../system/db/data.js'
 const config = path.join(dirname, './set/config.json'),
       pkg = JSON.parse(fs.readFileSync(path.join(dirname, '../package.json'))),
       temp = path.join(dirname, '../temp')
 
 export default function owner(ev) {
+  ev.on({
+    name: 'isibank',
+    cmd: ['isibank','addbank'],
+    tags: 'Owner Menu',
+    desc: 'isi saldo bank',
+    owner: !0,
+    prefix: !0,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        const num = parseInt(args),
+              bank = path.join(dirname,'./db/bank.json')
+
+        if (!args || isNaN(num)) return xp.sendMessage(chat.id,{ text: 'nominal tidak valid\ncontoh: .isibank 10000' },{ quoted: m })
+
+        const saldoBank = JSON.parse(fs.readFileSync(bank,'utf-8')),
+              saldoLama = saldoBank.key?.saldo || 0,
+              saldoBaru = saldoLama + num
+
+        saldoBank.key.saldo = saldoBaru
+
+        fs.writeFileSync(bank, JSON.stringify(saldoBank,null,2))
+
+        await xp.sendMessage(
+          chat.id,
+          { text: `Saldo bank ditambah: ${num}\nTotal: ${saldoBaru}` },
+          { quoted: m }
+        )
+      } catch (e) {
+        err('error pada isibank', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
   ev.on({
     name: 'addowner',
     cmd: ['addowner'],
@@ -38,6 +76,7 @@ export default function owner(ev) {
 
         cfg.ownerSetting.ownerNumber.push(target)
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2), 'utf-8')
+        global.ownerNumber = cfg.ownerSetting.ownerNumber
         xp.sendMessage(chat.id, { text: `${target} berhasil ditambahkan` }, { quoted: m })
       } catch (e) {
         err('error pada addowner', e)
@@ -178,6 +217,45 @@ export default function owner(ev) {
 
       } catch (e) {
         err('error pada bangrup', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'delowner',
+    cmd: ['delowner'],
+    tags: 'Owner Menu',
+    desc: 'menghapus nomor owner',
+    owner: !0,
+    prefix: !0,
+
+    run: async (xp, m, { args, chat }) => {
+      try {
+        const quoted = m.message?.extendedTextMessage?.contextInfo,
+              target = args[0]
+                ? await global.number(args[0])
+                : (quoted?.mentionedJid?.[0] || quoted?.participant)?.replace(/@s\.whatsapp\.net$/, '');
+
+        if (!target) {
+          return xp.sendMessage(chat.id, { text: 'reply/tag/masukan nomor nya' }, { quoted: m })
+        }
+
+        const cfg = JSON.parse(fs.readFileSync(config, 'utf-8')),
+              list = cfg.ownerSetting?.ownerNumber || [],
+              index = list.indexOf(target)
+
+        if (index < 0) {
+          return xp.sendMessage(chat.id, { text: 'nomor tidak terdaftar' }, { quoted: m })
+        }
+
+        list.splice(index, 1)
+        fs.writeFileSync(config, JSON.stringify(cfg, null, 2), 'utf-8')
+        global.ownerNumber = cfg.ownerSetting.ownerNumber
+        xp.sendMessage(chat.id, { text: `${target} berhasil dihapus` }, { quoted: m })
+
+      } catch (e) {
+        err('error pada delowner', e)
         call(xp, e, m)
       }
     }

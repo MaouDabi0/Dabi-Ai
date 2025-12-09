@@ -4,6 +4,107 @@ import { isJidGroup } from 'baileys'
 
 export default function group(ev) {
   ev.on({
+    name: 'antilink',
+    cmd: ['antilink'],
+    tags: 'Group Menu',
+    desc: 'anti link grup',
+    owner: !1,
+    prefix: !0,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        const gcData = getGc(chat),
+              { usrAdm, botAdm } = await grupify(xp, chat.id, chat.sender)
+
+        if (!chat.group || !gcData || !usrAdm || !botAdm) {
+          return xp.sendMessage(
+            chat.id,
+            {
+              text:
+                !chat.group
+                  ? 'perintah ini hanya bisa dijalankan digrup'
+                  : !gcData
+                  ? 'grup ini belum terdaftar ketik .daftargc untuk mendaftar'
+                  : !usrAdm
+                  ? 'kamu bukan admin'
+                  : 'aku bukan admin'
+            },
+            { quoted: m }
+          )
+        }
+
+        const input = args[0]?.toLowerCase()
+
+        if (!input || !['on', 'off'].includes(input)) {
+          return xp.sendMessage(chat.id, { text: 'gunakan:\n.antilink on/off' }, { quoted: m })
+        }
+
+        (gcData.filter ??= {}).antilink = input === 'on'
+        saveGc()
+
+        await xp.sendMessage(chat.id, { text: `antilink berhasil di-${input === 'on' ? 'aktifkan' : 'nonaktifkan'}` }, { quoted: m })
+      } catch (e) {
+        err('error pada antilink', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'antitagsw',
+    cmd: ['antitagsw', 'tagsw'],
+    tags: 'Group Menu',
+    desc: 'anti tag status digrup',
+    owner: !1,
+    prefix: !0,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        const gcData = getGc(chat),
+              { usrAdm, botAdm } = await grupify(xp, chat.id, chat.sender)
+
+        if (!chat.group || !usrAdm || !botAdm || !gcData) {
+          return xp.sendMessage(
+            chat.id,
+            {
+              text: !chat.group 
+                ? 'perintah ini hanya bisa digunakan digrup'
+                : !usrAdm
+                ? 'kamu bukan admin'
+                : !botAdm
+                ? 'aku bukan admin'
+                : !gcData
+                ? 'grup ini belum terdaftar ketik .daftargc untuk mendaftar'
+                : ''
+            },
+            { quoted: m }
+          )
+        }
+
+        const input = args[0]?.toLowerCase()
+
+        if (!input || !['on', 'off'].includes(input)) {
+          return xp.sendMessage(chat.id, { text: 'gunakan:\n.antitagsw on/off' }, { quoted: m })
+        }
+
+        (gcData.filter ??= {}).antitagsw = input === 'on'
+        saveGc()
+
+        await xp.sendMessage(chat.id, { text: `antitagsw di${input === 'on' ? 'aktifkan' : 'nonaktifkan'}` }, { quoted: m })
+      } catch (e) {
+        err('error pada antitagsw', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'close',
     cmd: ['tutup', 'close'],
     tags: 'Group Menu',
@@ -67,6 +168,7 @@ export default function group(ev) {
           filter: {
             mute: !1,
             antilink: !1,
+            antitagsw: !1,
             left: {
               leftGc: !1,
               leftText: ''

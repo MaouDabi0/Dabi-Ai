@@ -1,6 +1,5 @@
 import fetch from 'node-fetch'
 import { downloadMediaMessage } from 'baileys'
-import { db, saveDb } from '../../system/db/data.js'
 
 export default function ai(ev) {
   ev.on({

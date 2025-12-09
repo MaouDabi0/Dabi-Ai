@@ -17,57 +17,103 @@ export default function download(ev) {
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
-              reply = quoted?.conversation,
-              url = args[0] || reply
+              txt = quoted?.conversation || args.join(' ')
 
-        if (!url || !url.includes('facebook.com')) {
+        if (!txt || !/facebook\.com|fb\.watch/i.test(txt)) {
           return xp.sendMessage(
             chat.id,
-            { text: !url ? 'reply/isi link facebook nya' : 'harus berupa link facebook' },
+            { text: !txt
+                ? 'reply/masukan link fb\ncontoh: .fb https://www.facebook.com/share/v/1Dm66ZGfSY/'
+                : 'link tidak valid' },
             { quoted: m }
           )
         }
 
-        let res = await fetch(`https://api.vreyn.web.id/api/download/facebook?url=${encodeURIComponent(url)}`);
-        res = await res.json();
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
 
-        const { title, thumbnail, durasi, download } = res.result;
+        const url = await fetch(`${termaiWeb}/api/downloader/facebook?url=${encodeURIComponent(txt)}&key=${termaiKey}`).then(r => r.json())
 
-        xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+        if (!url.status || !url.data?.urls) {
+          return xp.sendMessage(chat.id, { text: 'video tidak ditemukan' }, { quoted: m })
+        }
 
-        xp.sendMessage(chat.id, {
-          text: `D O W N L O A D...`,
+        const res = url.data,
+              videoUrl = res.urls.hd || res.urls.sd
+
+        let teks = `${head} ${opb} *F A C E B O O K* ${clb}\n`
+            teks += `${body} ${btn} *Deskripsi:* ${res.description}\n`
+            teks += `${body} ${btn} *Durasi:* ${res.time}\n`
+            teks += `${foot}${line}`
+
+        await xp.sendMessage(chat.id, {
+          text: teks,
           contextInfo: {
             externalAdReply: {
-              body: title,
+              body: 'D O W N L O A D I NG . . .',
               thumbnailUrl: thumbnail,
               mediaType: 1,
               renderLargerThumbnail: !0,
-              forwardingScore: 1,
-              isForwarded: !0,
-              forwardedNewsletterMessageInfo: {
-                newsletterJid: idCh,
-                newsletterName: botName
-              }
+              sourceUrl: videoUrl
             }
+          },
+          forwardingScore: 1,
+          isForwarded: !0,
+          forwardedNewsletterMessageInfo: {
+            newsletterJid: idCh,
+            newsletterName: footer
           }
         })
 
-        xp.sendMessage(
-          chat.id,
-          {
-            video: { url: download.hd },
-            caption:
-              `${head} ${opb} Berikut Hasil Downloadnya ${clb}\n` +
-              `${body} ${btn} *Title:* ${title}\n` +
-              `${body} ${btn} *Durasi:* ${durasi}\n` +
-              `${foot}${line}`
-          },
-          { quoted: m }
-        )
+        await xp.sendMessage(chat.id, {
+          video: { url: videoUrl }
+        })
 
       } catch (e) {
-        err('error pada facebook', e)
+        err('error pada fb', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'gitclone',
+    cmd: ['git', 'clone', 'gitclone'],
+    tags: 'Download Menu',
+    desc: 'Download repository GitHub dalam bentuk .zip',
+    owner: !1,
+    prefix: !0,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        const url = args.join(' '),
+              match = url.match(/github\.com\/([^\/]+)\/([^\/\s]+)/)
+
+        if (!url || !url.includes('github.com')) {
+          return xp.sendMessage(chat.id, { text: !url ? 'contoh: .git https://github.com/MaouDabi0/Dabi-Ai' : 'link tidak valid' }, { quoted: m })
+        }
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        if (!match) return xp.sendMessage(chat.id, { text: 'Invalid GitHub link.' }, { quoted: m })
+
+        const [_, user, repoRaw] = match,
+            repo = repoRaw.replace(/\.git$/, ''),
+            zipUrl = `https://api.github.com/repos/${user}/${repo}/zipball`,
+            head = await fetch(zipUrl, { method: 'HEAD' }),
+            fileName = head.headers.get('content-disposition')?.match(/filename=(.*)/)?.[1]
+
+        return fileName
+          ? await xp.sendMessage(chat.id, { 
+              document: { url: zipUrl }, 
+              fileName: fileName + '.zip', 
+              mimetype: 'application/zip' 
+            }, { quoted: m })
+          : xp.sendMessage(chat.id, { text: 'Failed to get file info.' }, { quoted: m })
+      } catch (e) {
+        err('error pada gitclone', e)
         call(xp, e, m)
       }
     }
@@ -154,7 +200,7 @@ export default function download(ev) {
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
-              text   = quoted?.conversation || args.join(' ')
+              text = quoted?.conversation || args.join(' ')
 
         if (!text)
           return xp.sendMessage(chat.id, {

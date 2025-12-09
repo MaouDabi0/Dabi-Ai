@@ -1,7 +1,7 @@
 import axios from 'axios'
 import fs from 'fs'
 import path from 'path'
-import { spawn } from 'child_process'
+import { spawn, exec } from 'child_process'
 import { downloadMediaMessage } from 'baileys'
 import { writeExifImg, writeExifVid, mediaMessage } from '../../system/exif.js'
 
@@ -76,6 +76,74 @@ export default function maker(ev) {
 
       } catch (e) {
         err('error pada brat', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'qc',
+    cmd: ['qc'],
+    tags: 'Maker Menu',
+    desc: 'membuat quoted pesan',
+    owner: !1,
+    prefix: !0,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        const quoted = m.message?.extendedTextMessage?.contextInfo,
+              reply  = quoted?.quotedMessage?.conversation,
+              user   = quoted?.participant || quoted?.mentionedJid?.[0] || chat.id,
+              name   = chat.pushName || m.key?.pushName || m.key.participant,
+              defPP  = 'https://c.termai.cc/i0/7DbG.jpg',
+              colors = {
+                black: '#000000',
+                white: '#ffffff',
+                darkgrey: '#2F4F4F'
+              }
+
+        if (!args.length && !reply) 
+          return xp.sendMessage(chat.id, { text: `reply atau masukan teks\ncontoh: .qc white halo dunia\ndaftar warna:\n${Object.keys(colors).join('\n- ')}` }, { quoted: m })
+
+        const [clr, ...rest] = (args.join(' ') || '').split(' '),
+              valid          = !!colors[clr],
+              warna          = reply ? (valid ? colors[clr] : colors.white) : (valid ? colors[clr] : !1),
+              teks           = reply ? (valid ? (rest.join(' ') || reply) : reply) : (valid ? rest.join(' ') : '')
+
+        if (!warna) 
+          return xp.sendMessage(chat.id, { text: `masukan warna valid\ncontoh: .qc white halo dunia\ndaftar warna:\n${Object.keys(colors).join('\n- ')}` }, { quoted: m })
+
+        let avatar
+        try { avatar = await xp.profilePictureUrl(user, 'image') }
+        catch { avatar = defPP }
+
+        const json = {
+          type: 'quote',
+          format: 'png',
+          backgroundColor: warna,
+          width: 7e2,
+          height: 5.8e2,
+          scale: 2,
+          messages: [{
+            entities: [],
+            avatar: !0,
+            from: { id: 1, name, photo: { url: avatar } },
+            text: teks,
+            'm.replyMessage': {}
+          }]
+        }
+
+        const res = await axios.post('https://bot.lyo.su/quote/generate', json, { headers: { 'Content-Type': 'application/json' } }),
+              buff = Buffer.from(res.data.result.image, 'base64'),
+              stc  = await writeExifImg(buff, { packname: 'My sticker', author: '© ' + name })
+
+        await xp.sendMessage(chat.id, { sticker: { url: stc } }, { quoted: m })
+
+      } catch (e) {
+        err('error qc', e)
         call(xp, e, m)
       }
     }

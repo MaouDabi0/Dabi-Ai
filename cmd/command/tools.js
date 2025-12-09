@@ -124,7 +124,12 @@ export default function tools(ev) {
               reply = quoted?.imageMessage || quoted?.videoMessage || quoted?.audioMessage,
               media = ['image', 'video', 'audio'],
               mediaType = media.find(t => reply?.mimetype?.includes(t)),
-              time = global.time.timeIndo("Asia/Jakarta", "HH")
+              time = global.time.timeIndo("Asia/Jakarta", "HH"),
+              { usrAdm } = await grupify(xp, chat.id, chat.sender)
+
+        if (!usrAdm) {
+          return xp.sendMessage(chat.id, { text: 'kamu bukan admin' }, { quoted: m })
+        }
 
         if (!reply || !mediaType || !reply.mediaKey) {
           return xp.sendMessage(
@@ -233,7 +238,7 @@ export default function tools(ev) {
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
-              video = quoted?.videoMessage || msg.message?.videoMessage
+              video = quoted?.videoMessage || m.message?.videoMessage
 
         if (!video) {
           return xp.sendMessage(chat.id, { text: 'reply atau kirim video yang ingin dijadikan ptv' }, { quoted: m })
