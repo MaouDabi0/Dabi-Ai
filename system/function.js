@@ -1,8 +1,10 @@
 import fetch from 'node-fetch'
 import { bell } from '../cmd/interactive.js'
+import { saveGc, getGc } from './db/data.js'
 
 const memoryCache = {},
-      groupCache = new Map()
+      groupCache = new Map(),
+      spamData = {}
 
 async function getMetadata(id, xp, retry = 2) {
   if (groupCache.has(id)) return groupCache.get(id)
@@ -106,6 +108,78 @@ async function func() {
   return Object.assign(global, funcs), funcs
 }
 
+async function filter(xp, m, text) {
+  const chat = global.chat(m),
+        gcData = getGc(chat),
+        { usrAdm, botAdm } = await global.grupify(xp, chat.id, chat.sender)
+
+  const filter = {
+    link: async t => !!t && /chat\.whatsapp\.com/i.test(t),
+
+    antiLink: async () => {
+      const txt = m.message?.extendedTextMessage?.text
+      if (!botAdm) return
+
+      const isLink = await filter.link(txt)
+      return (gcData?.filter?.antilink && botAdm && !usrAdm && isLink)
+        ? await xp.sendMessage(chat.id, { delete: m.key }).catch(() => {})
+        : !1
+    },
+
+    antiTagSw: async () => {
+      const txt = m.message?.groupStatusMentionMessage
+      if (!botAdm) return
+
+      return (gcData?.filter?.antitagsw && botAdm && !usrAdm && txt)
+        ? await xp.sendMessage(chat.id, { delete: m.key }).catch(() => {})
+        : !1
+    }
+  }
+
+  return filter
+}
+
+async function cekSpam(xp, m) {
+  const chat = global.chat(m),
+        user = m.key.participant || chat.sender,
+        usrData = Object.values(db().key).find(u => u.jid === user),
+        now = Date.now(),
+        target = usrData?.jid
+
+  if (!usrData) return !1
+
+  if (!spamData[target]) {
+    return spamData[target] = {
+      count: 1,
+      time: { last: now }
+    }, !1
+  }
+
+  const diff = now - spamData[target].time.last
+
+  if (diff <= 1e3) {
+
+    spamData[target].count++,
+    spamData[target].time.last = now
+
+    if (spamData[target].count >= 2) {
+
+      await xp.sendMessage(chat.id, { text: 'jangan spam' }, { quoted: m })
+
+      return spamData[target].count = 0, !0
+    }
+
+    return !1
+  }
+
+  return diff >= 5e3
+    ? (spamData[target] = {
+        count: 1,
+        time: { last: now }
+      }, !1)
+    : (spamData[target].time.last = now, !1)
+}
+
 export {
   getMetadata,
   replaceLid,
@@ -113,5 +187,7 @@ export {
   call,
   cleanMsg,
   groupCache,
-  func
+  func,
+  filter,
+  cekSpam
 }

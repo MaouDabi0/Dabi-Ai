@@ -6,6 +6,7 @@ import sys from './sys.js'
 import { number } from './helper.js'
 import { call, func } from './function.js'
 import getMessageContent from './msg.js'
+import { db, saveDb } from './db/data.js'
 
 const filename = fileURLToPath(import.meta.url),
        dirname = path.dirname(filename);
@@ -18,6 +19,8 @@ const config = './system/set/config.json',
 
 Object.assign(global, {
   ...sys,
+  db,
+  saveDb,
   number,
   filename,
   dirname,

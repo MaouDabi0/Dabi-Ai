@@ -1,5 +1,6 @@
 function getMessageContent(m) {
-  let text = '', media = ''
+  let text = '',
+      media = ''
   if (!m?.message) return { text, media }
 
   const c = m.message,
