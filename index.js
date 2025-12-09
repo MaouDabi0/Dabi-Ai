@@ -9,7 +9,7 @@ import { signal } from './cmd/interactive.js'
 import { evConnect, handleSessionIssue } from './connect/evConnect.js'
 import { getGc } from './system/db/data.js'
 import { txtWlc, mode, banned, bangc } from './system/sys.js'
-import { getMetadata, replaceLid, saveLidCache, cleanMsg, groupCache } from './system/function.js'
+import { getMetadata, replaceLid, saveLidCache, cleanMsg, groupCache, filter } from './system/function.js'
 
 const tempDir = path.join(dirname, '../temp')
 fs.existsSync(tempDir) || fs.mkdirSync(tempDir, { recursive: !0 })
@@ -25,7 +25,7 @@ const startBot = async () => {
     const { state, saveCreds } = await useMultiFileAuthState('./connect/session')
     xp = makeWASocket({
       auth: state,
-      version: [2e0, 3e3, 1.025150051e9],
+      version: [2, 3000, 1029700657],
       printQRInTerminal: !1,
       syncFullHistory: !1,
       logger: logLevel,
@@ -107,6 +107,12 @@ const startBot = async () => {
           }
         }
 
+        const ft = await filter(xp, m, text)
+        ft && (
+          await ft.antiLink(),
+          await ft.antiTagSw()
+        )
+
         await handleCmd(m, xp)
       }
     })
@@ -120,7 +126,7 @@ const startBot = async () => {
             idToPhone = Object.fromEntries((meta?.participants || []).map(p => [p.id, p.phoneNumber]))
 
       for (const pid of u.participants) {
-        const phone = idToPhone[pid] || pid,
+        const phone = pid.phoneNumber || idToPhone[pid],
               msg = u.action === 'add'     ? c.greenBright.bold(`+ ${phone} joined ${g}`) :
                     u.action === 'remove'  ? c.redBright.bold(`- ${phone} left ${g}`) :
                     u.action === 'promote' ? c.magentaBright.bold(`${phone} promoted in ${g}`) :
@@ -130,11 +136,11 @@ const startBot = async () => {
         if (u.action === 'add') {
           const gcData = getGc({ id: u.id })
 
-          if (!gcData) return
+          if (!gcData || !gcData.filter?.welcome?.welcomeGc) return
 
           const id = { id: u.id },
                 { txt } = await txtWlc(xp, id),
-                jid = idToPhone[pid] || pid,
+                jid = pid.phoneNumber || idToPhone[pid],
                 mention = '@' + (jid?.split('@')[0] || jid),
                 textwlc = txt.replace(/@user|%user/gi, mention)
 
