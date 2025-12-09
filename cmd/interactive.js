@@ -24,9 +24,9 @@ async function vn(xp, id, audioBuffer, m = null) {
 
     messageContent[type].waveform = await generateWaveform(buff)
     return await xp.relayMessage(id, messageContent, {})
-  } catch (err) {
-    err('error pasa vn', err)
-    throw err
+  } catch (e) {
+    err('error pasa vn', e)
+    throw e
   }
 }
 

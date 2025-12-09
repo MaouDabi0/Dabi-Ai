@@ -4,6 +4,7 @@ import p from "path"
 import EventEmitter from "events"
 import { authUser } from '../system/db/data.js'
 import { own } from '../system/helper.js'
+import { cekSpam } from '../system/function.js'
 
 const dir = p.join(dirname, "../cmd/command"),
       cache = {}
@@ -93,32 +94,42 @@ const handleCmd = async (m, xp) => {
 
     const pfx = [].concat(global.prefix),
           pre = pfx.find(p => text.startsWith(p)),
-          usedPrefix = pre || '',
+          usePrefix = pre || '',
           cmdText = pre ? text.slice(pre.length).trim() : text.trim(),
           [cmd, ...args] = cmdText.split(/\s+/),
-          lowerCmd = cmd?.toLowerCase()
-    if (!lowerCmd) return
+          lowCmd = cmd?.toLowerCase()
+    if (!lowCmd) return
 
     const chat = global.chat(m),
           sender = (m.key.participant || m.key.remoteJid).replace(/@s\.whatsapp\.net$/, ''),
-          ownerNum = Array.isArray(global.ownerNumber)
-            ? global.ownerNumber.map(n => n.replace(/[^0-9]/g, ''))
-            : [global.ownerNumber?.replace(/[^0-9]/g, '')],
-          eventData = ev.cmd?.find(
-            e => e.name?.toLowerCase() === lowerCmd ||
-            (Array.isArray(e.cmd) && e.cmd.map(c => c.toLowerCase()).includes(lowerCmd))
+          user = Object.values(db().key).find(u => u.jid === chat.sender),
+          ownerNum = (Array.isArray(global.ownerNumber)
+            ? global.ownerNumber
+            : [global.ownerNumber]
+          ).map(n => n?.replace(/[^0-9]/g, '')),
+          eventData = ev.cmd?.find(e =>
+            e.name?.toLowerCase() === lowCmd ||
+            (Array.isArray(e.cmd) && e.cmd.some(c => c.toLowerCase() === lowCmd))
           )
 
     if (!eventData) return
-    const mode = eventData.prefix ?? true
 
-    if (mode === true && !pre) return
-    if (mode === false && pre) return
+    const mode = eventData.prefix ?? true
+    if ((mode && !pre) || (!mode && pre)) return
 
     await authUser(m, chat)
-    if ((!global.public || eventData?.owner) && !ownerNum.includes(sender)) return
 
-    ev.emit(lowerCmd, xp, m, { args, chat, text, command: lowerCmd, prefix: usedPrefix })
+    if ((!global.public || eventData.owner) && !ownerNum.includes(sender)) return
+
+    if ((user && (user.cmd = (user.cmd || 0) + 1, await saveDb())), await cekSpam(xp, m)) return
+
+    ev.emit(lowCmd, xp, m, {
+      args,
+      chat,
+      text,
+      command: lowCmd,
+      prefix: usePrefix
+    })
   } catch (e) {
     err('error pada handleCmd', e)
   }
