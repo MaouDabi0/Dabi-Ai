@@ -101,10 +101,11 @@ const authUser = async (m, chat) => {
       jid: sender,
       noId: randomId(m),
       ban: !1,
+      cmd: 0,
+      money: 2e5,
       ai: {
         bell: !1,
         chat: 0,
-        affinity: 2e2,
         role: role[0]
       }
     }
