@@ -37,7 +37,7 @@ Bot ini cocok digunakan untuk:
 
 ## Fitur Utama
 
-> Dapat dikustomisasi dan diperluas sesuai script dasar*
+> Dapat dikustomisasi dan diperluas sesuai script dasar
 >> Menjalankan perintah melalui **command `ai`**
 >>> Menu interaktif berbasis WhatsApp
 >>>> Support multiple users sekaligus
