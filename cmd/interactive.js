@@ -1,7 +1,7 @@
 import fetch from 'node-fetch'
 import { generateWAMessageContent, getContentType } from 'baileys'
 import { convertToOpus, generateWaveform } from '../system/ffmpeg.js'
-import { db, saveDb } from '../system/db/data.js'
+import { role } from '../system/db/data.js'
 
 const fetchData = async (url, type = 'json', options = {}) => {
   const res = await fetch(url, options)
@@ -32,6 +32,9 @@ async function vn(xp, id, audioBuffer, m = null) {
 
 async function bell(body, text, m, sender, xp, id, voice = "dabi", pitch = 0, speed = 0.9) {
   const name = m?.pushName || m?.key?.participantAlt?.split('@')[0] || 'tidak diketahui',
+        chat = global.chat(m),
+        usr = Object.values(db().key).find(u => u.jid === chat.sender),
+        role = usr.ai?.role || 'gak kenal',
         data = {
           text,
           id: sender,
@@ -40,7 +43,7 @@ async function bell(body, text, m, sender, xp, id, voice = "dabi", pitch = 0, sp
           senderName: name,
           ownerName,
           date: new Date().toString(),
-          role: 'Sahabat Deket',
+          role: role,
           msgtype: 'text',
           custom_profile: logic,
           commands: [
@@ -141,8 +144,9 @@ async function bell(body, text, m, sender, xp, id, voice = "dabi", pitch = 0, sp
   }
 }
 
-const signal = async (text, m, user, id, xp, ev) => {  
+const signal = async (text, m, user, id, xp, ev) => {
   const idBot = xp.user?.id?.split(':')[0] + '@s.whatsapp.net',
+        chat = global.chat(m),
         botName = global.botName?.toLowerCase(),
         botNumb = idBot.split('@')[0],
         msg = m.message || {},
@@ -152,23 +156,26 @@ const signal = async (text, m, user, id, xp, ev) => {
                || text 
                || '',
         { mentionedJid = [], participant = '' } = ctx,
-        sender = m.key?.participant || m.participant || user,
-        senderBase = sender?.split(':')[0] || sender,
+        sender = m.key?.participant ?? m.participant ?? user,
+        senderBase = sender?.split(':')[0] ?? sender,
         lowerText = caption.toLowerCase(),
-        call = [
-          mentionedJid.includes(idBot),
-          participant === idBot,
-          ctx.participant === idBot,
-          botName && lowerText.includes(botName)
-        ].some(Boolean),
+        call =
+          mentionedJid.includes(idBot) ||
+          participant === idBot ||
+          ctx.participant === idBot ||
+          (!!botName && lowerText.includes(botName)),
         prefix = [].concat(global.prefix).some(p => lowerText.startsWith(p))
 
-  if ((call && senderBase === botNumb) || prefix || !call) return
+  if (!call || prefix || senderBase === botNumb) return
 
-  const keyData = Object.values(db()?.key || {}).find(v => v?.jid === sender)
-  if (!keyData?.ai || keyData.ai.bell === !1) return
+  const keyData = Object.values(db().key).find(u => u.jid === sender),
+        exp = Math.round(0.1 * 10)
+  if (!keyData?.ai?.bell) return
 
-  keyData.ai.chat = (keyData.ai.chat || 0) + 1, saveDb()
+  keyData.ai.chat = ++keyData.ai.chat || 1
+  keyData.exp = (keyData.exp || 0) + exp
+  role(m)
+  saveDb()
 
   const _ai = await bell(caption, caption, m, sender, xp, id)
   if (!_ai || !ev) return
@@ -240,11 +247,11 @@ const signal = async (text, m, user, id, xp, ev) => {
   if (ify) {
     m.q = ify.q
     const _args = ify.prompt && _ai.msg ? _ai.msg.trim().split(/\s+/) : []
-    ev.emit(ify.event, xp, m, { args: _args, chat: global.chat(m) })
+    ev.emit(ify.event, xp, m, { args: _args, chat })
     res = ify.res ?? !1
-  } else if (_ai.msg) res = !0
+  } else res = !!_ai.msg
 
-  if (_ai.msg && res) await xp.sendMessage(m.key.remoteJid, { text: _ai.msg }, { quoted: m })
+  if (_ai.msg && res) await xp.sendMessage(chat.id, { text: _ai.msg }, { quoted: m })
 
   return _ai
 }

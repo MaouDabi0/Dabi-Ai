@@ -2,7 +2,7 @@ import c from "chalk"
 import fs from "fs"
 import p from "path"
 import EventEmitter from "events"
-import { authUser } from '../system/db/data.js'
+import { authUser, role } from '../system/db/data.js'
 import { own } from '../system/helper.js'
 import { cekSpam } from '../system/function.js'
 
@@ -87,14 +87,14 @@ const watch = () => {
   }
 }
 
-const handleCmd = async (m, xp) => {
+const handleCmd = async (m, xp, store) => {
   try {
     const { text } = global.getMessageContent(m) || {}
     if (!text) return
 
-    const pfx = [].concat(global.prefix),
-          pre = pfx.find(p => text.startsWith(p)),
-          usePrefix = pre || '',
+    const bankDb = JSON.parse(fs.readFileSync(p.join(dirname, './db/bank.json'), 'utf-8')),
+          pfx = [].concat(global.prefix),
+          pre = pfx.find(p => text.startsWith(p)) || '',
           cmdText = pre ? text.slice(pre.length).trim() : text.trim(),
           [cmd, ...args] = cmdText.split(/\s+/),
           lowCmd = cmd?.toLowerCase()
@@ -102,33 +102,61 @@ const handleCmd = async (m, xp) => {
 
     const chat = global.chat(m),
           sender = (m.key.participant || m.key.remoteJid).replace(/@s\.whatsapp\.net$/, ''),
-          user = Object.values(db().key).find(u => u.jid === chat.sender),
-          ownerNum = (Array.isArray(global.ownerNumber)
-            ? global.ownerNumber
-            : [global.ownerNumber]
-          ).map(n => n?.replace(/[^0-9]/g, '')),
+          userDb = Object.values(db().key).find(u => u.jid === chat.sender),
+          ownerNum = [].concat(global.ownerNumber).map(n => n?.replace(/[^0-9]/g, '')),
           eventData = ev.cmd?.find(e =>
             e.name?.toLowerCase() === lowCmd ||
-            (Array.isArray(e.cmd) && e.cmd.some(c => c.toLowerCase() === lowCmd))
+            e.cmd?.some(c => c.toLowerCase() === lowCmd)
           )
 
-    if (!eventData) return
-
-    const mode = eventData.prefix ?? true
-    if ((mode && !pre) || (!mode && pre)) return
+    if (!eventData || ((eventData.prefix ?? !0) ? !pre : pre)) return
 
     await authUser(m, chat)
 
     if ((!global.public || eventData.owner) && !ownerNum.includes(sender)) return
+    if (await cekSpam(xp, m)) return
 
-    if ((user && (user.cmd = (user.cmd || 0) + 1, await saveDb())), await cekSpam(xp, m)) return
+    const cost = eventData.money || 0,
+          exp = eventData.exp ?? 0.1,
+          expInt = Math.round(exp * 10)
+
+    let needSave = !1
+
+    if (userDb) {
+      userDb.cmd = (userDb.cmd || 0) + 1
+      userDb.exp = (userDb.exp || 0) + expInt
+      role()
+      needSave = !0
+    }
+
+    if (cost > 0) {
+      if (!userDb)
+        return xp.sendMessage(chat.id, { text: 'ulangi' }, { quoted: m })
+
+      if ((userDb.moneyDb?.money || 0) < cost)
+        return xp.sendMessage(chat.id, { text: `uang kamu tersisa Rp ${userDb.moneyDb.money.toLocaleString('id-ID')}\n` + `butuh: Rp ${cost.toLocaleString('id-ID')}` }, { quoted: m })
+
+      userDb.moneyDb.money -= cost
+      bankDb.key.saldo += cost
+
+      fs.writeFileSync(
+        p.join(dirname, './db/bank.json'),
+        JSON.stringify(bankDb, null, 2),
+        'utf-8'
+      )
+
+      needSave = !0
+    }
+
+    needSave && await saveDb()
 
     ev.emit(lowCmd, xp, m, {
       args,
       chat,
       text,
-      command: lowCmd,
-      prefix: usePrefix
+      cmd: lowCmd,
+      prefix: pre,
+      store
     })
   } catch (e) {
     err('error pada handleCmd', e)
