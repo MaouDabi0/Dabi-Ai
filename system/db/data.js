@@ -31,6 +31,8 @@ let init = (() => {
 const db = () => init.db,
       gc = () => init.gc
 
+const getUsr = jid => Object.values(db().key).find(u => u.jid === jid)
+
 const getGc = chat => gc()?.key && Object.values(gc().key).find(g => String(g?.id) === String(chat.id)) || null
 
 const saveDb = async () => {
@@ -49,7 +51,7 @@ const saveGc = () => {
   }
 }
 
-const role = [
+const listRole = [
   'Gak Kenal',
   'Baru Kenal',
   'Temen Biasa',
@@ -64,6 +66,23 @@ const role = [
   'Pacar',
   'Soulmate'
 ]
+
+const role = jid => {
+  const user = getUsr(jid)
+  if (!user?.ai) return
+
+  const exp = user.exp || 0,
+        maxExp = 2000,
+        len = listRole.length,
+        step = maxExp / len,
+        idx = Math.min(len - 1, Math.floor(exp / step)),
+        newRole = listRole[idx]
+
+  user.ai.role !== newRole && (
+    user.ai.role = newRole,
+    !0
+  )
+}
 
 const randomId = m => {
   const letters = 'abcdefghijklmnopqrstuvwxyz',
@@ -102,15 +121,17 @@ const authUser = async (m, chat) => {
       noId: randomId(m),
       ban: !1,
       cmd: 0,
-      money: 2e5,
+      exp: 0,
+      moneyDb: {
+        money: 2e5,
+        moneyInBank: 0
+      },
       ai: {
         bell: !1,
         chat: 0,
-        role: role[0]
+        role: listRole[0]
       }
     }
-
-    await saveDb()
   } catch (e) {
     err('error pada authUser', e)
     call(xp, e, m)
@@ -124,6 +145,7 @@ export {
   getGc,
   saveDb,
   saveGc,
+  role,
   randomId,
   authUser
 }
