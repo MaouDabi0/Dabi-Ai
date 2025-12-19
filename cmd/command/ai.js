@@ -1,3 +1,4 @@
+import axios from 'axios'
 import fetch from 'node-fetch'
 import { downloadMediaMessage } from 'baileys'
 
@@ -9,17 +10,21 @@ export default function ai(ev) {
     desc: 'Fitur open ai',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.2,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const { id, group, sender } = chat,
               val = args[0]?.toLowerCase();
 
         if (!['on', 'off'].includes(val)) 
-          return xp.sendMessage(id, { text: 'Gunakan perintah .ai on/off' }, { quoted: m });
+          return xp.sendMessage(id, { text: `Gunakan perintah ${prefix}${cmd} on/off` }, { quoted: m });
 
         const value = val === 'on',
               key = Object.keys(db().key).find(k => db().key[k].jid === (group ? sender : id));
@@ -29,11 +34,7 @@ export default function ai(ev) {
         db().key[key].ai.bell = value;
         saveDb();
 
-        xp.sendMessage(
-          id, 
-          { text: `ai telah ${value ? 'diaktifkan' : 'dinonaktifkan'}.` }, 
-          { quoted: m }
-        );
+        xp.sendMessage(id, { text: `ai telah ${value ? 'diaktifkan' : 'dinonaktifkan'}.` }, { quoted: m });
       } catch (e) {
         err('error pada bell', e)
         call(xp, e, m)
@@ -48,6 +49,8 @@ export default function ai(ev) {
     desc: 'Reset sesi AI Bell',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -64,11 +67,7 @@ export default function ai(ev) {
         const res  = await fetch(`${termaiWeb}/api/chat/logic-bell/reset?id=${target}&key=${termaiKey}`),
               json = await res.json()
 
-        await xp.sendMessage(
-          chat.id,
-          { text: json.m || json.msg || 'Terjadi error saat reset sesi Bell.' },
-          { quoted: m }
-        )
+        await xp.sendMessage(chat.id, { text: json.m || json.msg || 'Terjadi error saat reset sesi Bell.' }, { quoted: m })
       } catch (e) {
         err('error pada resetbell', e)
         call(xp, e, m)
@@ -83,6 +82,8 @@ export default function ai(ev) {
     desc: 'cek key termai',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -140,25 +141,31 @@ export default function ai(ev) {
     desc: 'edit gambar dengan generatif ai',
     owner: !1,
     prefix: !0,
+    money: 1000,
+    exp: 0.3,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const prompt = args.join(" "),
-              quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+              q = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
               quotedKey = m.message?.extendedTextMessage?.contextInfo,
-              image = quoted?.imageMessage || m.message?.imageMessage
+              image = q?.imageMessage || m.message?.imageMessage
 
         if (!image && !prompt) {
-          return xp.sendMessage(chat.id, { text: !image ? 'reply/kirim gambar dengan caption .i2i prompt' : 'sertakan prompt\ncontoh prompt: .i2i ubah kulitnya jadi hitam' }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: !image ? `reply/kirim gambar dengan caption ${prefix}${cmd} prompt` : `sertakan prompt\ncontoh prompt: ${prefix}${cmd} ubah kulitnya jadi hitam` }, { quoted: m })
         }
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
 
         let media
         try {
-          if (quoted?.imageMessage) {
-            media = await downloadMediaMessage({ key: quotedKey, message: quoted }, 'buffer')
+          if (q?.imageMessage) {
+            media = await downloadMediaMessage({ key: quotedKey, message: q }, 'buffer')
           } else if (m.message?.imageMessage) {
             media = await downloadMediaMessage(m, 'buffer')
           }
@@ -181,6 +188,94 @@ export default function ai(ev) {
         await xp.sendMessage(chat.id, { image: imgBuffer, caption: `hasil dengan prompt: ${prompt}` }, { quoted: m })
       } catch (e) {
         err('error pada img2img', e)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'img2vid',
+    cmd: ['i2v', 'img2vid'],
+    tags: 'Ai Menu',
+    desc: 'ubah gambar jadi video',
+    owner: !1,
+    prefix: !0,
+    money: 1500,
+    exp: 0.2,
+  
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const q = m.message?.extendedTextMessage?.contextInfo,
+              mediaMessage = q?.quotedMessage?.imageMessage || m.message?.imageMessage,
+              prompt = args.join(' ')
+
+        if (!mediaMessage || !prompt)
+          return xp.sendMessage(chat.id, { text: `mana gambar nya?\ncontoh: ${prefix}${cmd} perhalus gerakannya` }, { quoted: m })
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        const media = await downloadMediaMessage({ message: { imageMessage: mediaMessage } }, 'buffer')
+        if (!media) throw new Error('gagal mengunduh gambar')
+
+        const response = await axios.post(
+          `${termaiWeb}/api/img2video/luma?key=${termaiKey}&prompt=${encodeURIComponent(prompt)}`,
+          media, {
+            headers: { "Content-Type": "application/octet-stream" },
+            responseType: "stream"
+          })
+
+        let lastUrl = null,
+            finished = !1
+
+        response.data.on('data', chunk => {
+          if (finished) return
+
+          try {
+            const lines = chunk.toString()
+                               .split('\n')
+                               .filter(v => v.startsWith('data: '))
+
+            for (const line of lines) {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.url) lastUrl = data.url
+
+              if (data.status === 'failed') {
+                finished = !0
+                response.data.destroy()
+                return call(xp, new Error('gagal generate video'), m)
+              }
+
+              if (data.status === 'completed') {
+                finished = !0
+                response.data.destroy()
+
+                const videoUrl = data?.video?.url || data?.url || lastUrl
+                if (!videoUrl)
+                  return call(xp, new Error('video tidak ditemukan'), m)
+
+                return xp.sendMessage(chat.id, { video: { url: videoUrl }, caption: 'berhasil convert gambar ke video' }, { quoted: m })
+              }
+            }
+          } catch (e) {
+            finished = !0
+            response.data.destroy()
+            call(xp, e, m)
+          }
+        })
+
+        response.data.on('error', e => {
+          if (finished) return
+          finished = !0
+          call(xp, e, m)
+        })
+      } catch (e) {
+        err('error pada img2video', e)
+        call(xp, e, m)
       }
     }
   })

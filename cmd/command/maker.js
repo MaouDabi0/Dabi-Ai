@@ -1,4 +1,5 @@
 import axios from 'axios'
+import fd from 'form-data'
 import fs from 'fs'
 import path from 'path'
 import { spawn, exec } from 'child_process'
@@ -13,6 +14,8 @@ export default function maker(ev) {
     desc: 'membuat stiker brat',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -26,6 +29,8 @@ export default function maker(ev) {
               url = `https://aqul-brat.hf.space/api/brat?text=${encodeURIComponent(txt)}`
 
         if (!txt) return xp.sendMessage(chat.id, { text: 'masukan teks atau reply text yang akan dijadikan brat' }, { quoted: m })
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
 
         const temp = path.join(dirname, '../temp'),
               input = path.join(temp, `input_${name}_${time}.png`),
@@ -82,12 +87,49 @@ export default function maker(ev) {
   })
 
   ev.on({
+    name: 'fakengl',
+    cmd: ['ngl', 'fakengl'],
+    tags: 'Maker Menu',
+    desc: 'membuat fake ngl',
+    owner: !1,
+    prefix: !0,
+    money: 500,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        if (!args.length) {
+          return xp.sendMessage(chat.id, { text: 'example: .fakengl halo' }, { quoted: m })
+        }
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        const txt = args.join(' ').trim(),
+              emoji = 'whatsapp',
+              backgroundColor = 'light',
+              url = `${termaiWeb}/api/maker/ngl?text=${encodeURIComponent(txt)}&emoji=${emoji}&backgroundColor=${backgroundColor}&key=${termaiKey}`,
+              res = await xp.sendMessage(chat.id, { image: { url }, caption: 'hasil generate', ai: !0 }, { quoted: m })
+
+        res ? !0 : await xp.sendMessage(chat.id, { text: 'gagal membuat fakengl' }, { quoted: m })
+      } catch (e) {
+        err('error pada fakengl', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'qc',
     cmd: ['qc'],
     tags: 'Maker Menu',
     desc: 'membuat quoted pesan',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -150,12 +192,78 @@ export default function maker(ev) {
   })
 
   ev.on({
+    name: 'smeme',
+    cmd: ['smeme'],
+    tags: 'Maker Menu',
+    desc: 'Membuat stiker meme dari gambar dengan teks atas dan bawah.',
+    owner: !1,
+    prefix: !0,
+    money: 160,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const q = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+              media = q || m.message,
+              img = q?.imageMessage || q?.stickerMessage,
+              txt = args.join(' ')
+
+        if (!img || !txt?.includes('|'))
+          return xp.sendMessage(chat.id, { text: !img ? `reply gambar/stiker\ncontoh: ${prefix + cmd} atas | bawah` : `format salah\ncontoh: ${prefix + cmd} atas | bawah` }, { quoted: m })
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        const upUguu = async (buf, name, mime) => {
+                const f = new fd()
+                f.append('files[]', buf, { filename: name, contentType: mime })
+
+                const { data } = await axios.post(
+                  'https://uguu.se/upload.php',
+                  f,
+                  { headers: f.getHeaders() }
+                )
+
+                if (!data?.files?.[0]?.url) throw Error('Upload gagal ke uguu.se')
+                return data.files[0].url
+              },
+              genMemeBuf = async (url, atas, bawah) =>
+                Buffer.from(
+                  (await axios.get(
+                    `https://api.memegen.link/images/custom/${encodeURIComponent(atas)}/${encodeURIComponent(bawah)}.png?background=${encodeURIComponent(url)}`,
+                    { responseType: 'arraybuffer' }
+                  )).data
+                )
+
+        const [atas, bawah] = txt.split('|').map(v => v.trim() || '_'),
+              buf = await downloadMediaMessage({ message: media }, 'buffer')
+
+        if (!buf) throw Error('gagal mendownload media')
+
+        const url = await upUguu(buf, 'smeme.jpg', 'image/jpeg'),
+              meme = await genMemeBuf(url, atas, bawah),
+              stcPath = await writeExifImg(meme, { packname: `${botName}`, author: `${chat.pushName}` })
+
+        await xp.sendMessage(chat.id, { sticker: fs.readFileSync(stcPath) }, { quoted: m })
+      } catch (e) {
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'stiker',
     cmd: ['s', 'stiker', 'sticker'],
     tags: 'Maker Menu',
     desc: 'membuat stiker',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -194,6 +302,8 @@ export default function maker(ev) {
     desc: 'konversi stiker ke gambar ( kecuali stiker animasi )',
     owner: !1,
     prefix: !0,
+    money: 150,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -236,37 +346,6 @@ export default function maker(ev) {
         })
       } catch (e) {
         err('error pada toimg', e),
-        call(xp, e, m)
-      }
-    }
-  })
-
-  ev.on({
-    name: 'fakengl',
-    cmd: ['ngl', 'fakengl'],
-    tags: 'Maker Menu',
-    desc: 'membuat fake ngl',
-    owner: !1,
-    prefix: !0,
-
-    run: async (xp, m, {
-      args,
-      chat
-    }) => {
-      try {
-        if (!args.length) {
-          return xp.sendMessage(chat.id, { text: 'example: .fakengl halo' }, { quoted: m })
-        }
-
-        const txt = args.join(' ').trim(),
-              emoji = 'whatsapp',
-              backgroundColor = 'light',
-              url = `${termaiWeb}/api/maker/ngl?text=${encodeURIComponent(txt)}&emoji=${emoji}&backgroundColor=${backgroundColor}&key=${termaiKey}`,
-              res = await xp.sendMessage(chat.id, { image: { url }, caption: 'hasil generate', ai: !0 }, { quoted: m })
-
-        res ? !0 : await xp.sendMessage(chat.id, { text: 'gagal membuat fakengl' }, { quoted: m })
-      } catch (e) {
-        err('error pada fakengl', e)
         call(xp, e, m)
       }
     }

@@ -9,50 +9,14 @@ const config = path.join(dirname, './set/config.json'),
 
 export default function owner(ev) {
   ev.on({
-    name: 'isibank',
-    cmd: ['isibank','addbank'],
-    tags: 'Owner Menu',
-    desc: 'isi saldo bank',
-    owner: !0,
-    prefix: !0,
-
-    run: async (xp, m, {
-      args,
-      chat
-    }) => {
-      try {
-        const num = parseInt(args),
-              bank = path.join(dirname,'./db/bank.json')
-
-        if (!args || isNaN(num)) return xp.sendMessage(chat.id,{ text: 'nominal tidak valid\ncontoh: .isibank 10000' },{ quoted: m })
-
-        const saldoBank = JSON.parse(fs.readFileSync(bank,'utf-8')),
-              saldoLama = saldoBank.key?.saldo || 0,
-              saldoBaru = saldoLama + num
-
-        saldoBank.key.saldo = saldoBaru
-
-        fs.writeFileSync(bank, JSON.stringify(saldoBank,null,2))
-
-        await xp.sendMessage(
-          chat.id,
-          { text: `Saldo bank ditambah: ${num}\nTotal: ${saldoBaru}` },
-          { quoted: m }
-        )
-      } catch (e) {
-        err('error pada isibank', e)
-        call(xp, e, m)
-      }
-    }
-  })
-
-  ev.on({
     name: 'addowner',
     cmd: ['addowner'],
     tags: 'Owner Menu',
     desc: 'menambahkan owner',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -60,9 +24,11 @@ export default function owner(ev) {
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              target = args[0]
-                ? await global.number(args[0])
-                : (quoted?.mentionedJid?.[0] || quoted?.participant).replace(/@s\.whatsapp\.net$/, '')
+              user = quoted?.participant || quoted?.mentionedJid?.[0],
+              raw = args && args[0] ? args[0] : null,
+              num = raw ? global.number(raw) : null,
+              targetRaw = user || num,
+              target = targetRaw.replace(/@s\.whatsapp\.net$/, '')
 
         if (!target) {
           return xp.sendMessage(chat.id, { text: 'reply/tag/masukan nomor nya' }, { quoted: m })
@@ -77,9 +43,57 @@ export default function owner(ev) {
         cfg.ownerSetting.ownerNumber.push(target)
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2), 'utf-8')
         global.ownerNumber = cfg.ownerSetting.ownerNumber
-        xp.sendMessage(chat.id, { text: `${target} berhasil ditambahkan` }, { quoted: m })
+
+        xp.sendMessage(chat.id, { text: `@${target} berhasil ditambahkan`, mentions: [targetRaw] }, { quoted: m })
       } catch (e) {
         err('error pada addowner', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'addmoney',
+    cmd: ['addmoney', 'adduang'],
+    tags: 'Owner Menu',
+    desc: 'menambahkan uang ke target',
+    owner: !0,
+    prefix: !0,
+    money: 0,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        if (!chat.group) return xp.sendMessage(chat.id, { text: 'perintah ini hanya bisa digunakan digrup' }, { quoted: m })
+
+        const quoted = m.message?.extendedTextMessage?.contextInfo,
+              target = quoted?.participant || quoted?.mentionedJid?.[0]
+
+        if (!target) {
+          return xp.sendMessage(chat.id, { text: 'reply/tag target\ncontoh: .adduang @pengguna/reply 10000' }, { quoted: m })
+        }
+
+        const userDb = Object.values(db().key).find(u => u.jid === target),
+              nominal = Number(args[1]) || Number(args[0]),
+              mention = target.replace(/@s\.whatsapp\.net$/, '')
+
+        if (!nominal || nominal < 1) {
+          return xp.sendMessage(chat.id, { text: 'nominal tidak valid' }, { quoted: m })
+        }
+
+        if (!userDb) {
+          return xp.sendMessage(chat.id, { text: 'pengguna belum terdaftar' }, { quoted: m })
+        }
+
+        userDb.moneyDb.moneyInBank += nominal
+        saveDb()
+
+        await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil ditambahkan ke bank @${mention}`, mentions: [target] }, { quoted: m })
+      } catch (e) {
+        err('error pada addmoney', e)
         call(xp, e, m)
       }
     }
@@ -92,6 +106,8 @@ export default function owner(ev) {
     desc: 'backup sc',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -152,6 +168,8 @@ export default function owner(ev) {
     desc: 'banned pengguna',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -195,6 +213,8 @@ export default function owner(ev) {
     desc: 'memblokir grup',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -223,12 +243,44 @@ export default function owner(ev) {
   })
 
   ev.on({
+    name: 'cleartmp',
+    cmd: ['clear', 'cleartmp'],
+    tags: 'Owner Menu',
+    desc: 'membersihkan tempat sampah',
+    owner: !0,
+    prefix: !0,
+    money: 0,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      chat
+    }) => {
+      try {
+        const tmpdir = path.join(dirname, '../temp')
+
+        if (!fs.existsSync(tmpdir)) return xp.sendMessage(chat.id, { text: 'file temp tidak ditemukan' }, { quoted: m })
+
+        const file = fs.readdirSync(tmpdir)
+        return !file.length
+          ? xp.sendMessage(chat.id, { text: 'sampah sudah bersih' }, { quoted: m })
+          : (file.forEach(f => fs.rmSync(path.join(tmpdir, f), { recursive: !0, force: !0 })),
+            await xp.sendMessage(chat.id, { text: 'temp berhasil dibersihkan' }, { quoted: m }))
+      } catch (e) {
+        err('error pada cleartmp', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'delowner',
     cmd: ['delowner'],
     tags: 'Owner Menu',
     desc: 'menghapus nomor owner',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, { args, chat }) => {
       try {
@@ -262,12 +314,58 @@ export default function owner(ev) {
   })
 
   ev.on({
+    name: 'deluang',
+    cmd: ['deluang'],
+    tags: 'Owner Menu',
+    desc: 'menghapus uang pengguna',
+    owner: !0,
+    prefix: !0,
+    money: 0,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const quoted = m.message?.extendedTextMessage?.contextInfo,
+              user = quoted?.participant || quoted?.mentionedJid?.[0]
+
+        if (!chat.group || !user) {
+          return xp.sendMessage(chat.id, { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : 'reply/tag target' }, { quoted: m })
+        }
+
+        const userDb = Object.values(db().key).find(u => u.jid === user),
+              nominal = Number(args[1]) || Number(args[0])
+
+        if (!nominal || !userDb) {
+          return xp.sendMessage(chat.id, { text: !nominal ? `nominal tidak valid\ncontoh: ${prefix}${cmd} 10000` : 'pengguna belum terdaftar' }, { quoted: m })
+        }
+
+        if (userDb.moneyDb?.money < nominal) return xp.sendMessage(chat.id, { text: `uang pengguna tersisa ${userDb?.moneyDb?.money.toLocaleString('id-ID')}` }, { quoted: m })
+
+        userDb.moneyDb.money -= nominal
+        saveDb()
+
+        await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil disita` }, { quoted: m })
+      } catch (e) {
+        err('error pada deluang', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'eval',
     cmd: ['=>', '>', '~>'],
     tags: 'Owner Menu',
     desc: 'Mengeksekusi kode JavaScript secara langsung',
     owner: !0,
     prefix: !1,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -316,12 +414,54 @@ export default function owner(ev) {
   })
 
   ev.on({
+    name: 'isibank',
+    cmd: ['isibank','addbank'],
+    tags: 'Owner Menu',
+    desc: 'isi saldo bank',
+    owner: !0,
+    prefix: !0,
+    money: 0,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat
+    }) => {
+      try {
+        const num = parseInt(args),
+              bank = path.join(dirname,'./db/bank.json')
+
+        if (!args || isNaN(num)) return xp.sendMessage(chat.id,{ text: 'nominal tidak valid\ncontoh: .isibank 10000' },{ quoted: m })
+
+        const saldoBank = JSON.parse(fs.readFileSync(bank,'utf-8')),
+              saldoLama = saldoBank.key?.saldo || 0,
+              saldoBaru = saldoLama + num
+
+        saldoBank.key.saldo = saldoBaru
+
+        fs.writeFileSync(bank, JSON.stringify(saldoBank,null,2))
+
+        await xp.sendMessage(
+          chat.id,
+          { text: `Saldo bank ditambah: ${num}\nTotal: ${saldoBaru}` },
+          { quoted: m }
+        )
+      } catch (e) {
+        err('error pada isibank', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'mode',
     cmd: ['mode'],
     tags: 'Owner Menu',
     desc: 'setting mode group/private',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -357,6 +497,8 @@ export default function owner(ev) {
     desc: 'menghapus status ban pada pengguna',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -400,6 +542,8 @@ export default function owner(ev) {
     desc: 'membuka ban grup',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -434,6 +578,8 @@ export default function owner(ev) {
     desc: 'pengaturan bot mode',
     owner: !0,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -471,6 +617,8 @@ export default function owner(ev) {
     desc: 'menjalankan perintah shell',
     owner: !0,
     prefix: !1,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,

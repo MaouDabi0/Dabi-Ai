@@ -1,3 +1,4 @@
+import fetch from 'node-fetch'
 import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
@@ -9,12 +10,60 @@ import os from 'os'
 
 export default function info(ev) {
   ev.on({
+    name: 'cekcuaca',
+    cmd: ['cekcuaca', 'cuaca'],
+    tags: 'Info Menu',
+    desc: 'info saluran cuaca',
+    owner: !1,
+    prefix: !0,
+    money: 100,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const kota = args.join(' ')
+        if (!kota) return xp.sendMessage(chat.id, { text: `contoh: ${prefix}${cmd} jakarta` }, { quoted: m })
+
+        const url = await fetch(`https://api.ureshii.my.id/api/internet/info-cuaca?kota=${encodeURIComponent(kota)}`),
+              res = await url.json()
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        if (!res.kota || !res.cuaca) return xp.sendMessage(chat.id, { text: `gagal mendapatkan info cuaca untuk kota: ${kota}` }, { quoted: m })
+
+        let txt = '*Cuaca Hari Ini Di*\n\n'
+            txt += `${head}${opb} ${res.kota}, ${res.negara} ${clb}\n`
+            txt += `${body} ${btn} *Cuaca:* ${res.cuaca}\n`
+            txt += `${body} ${btn} *Kelembapan:* ${res.kelembapan}%\n`
+            txt += `${body} ${btn} *Kec Angin:* ${res.angin_kpj} m/s\n`
+            txt += `${body} ${btn} *Suhu Saat Ini:* ${res.suhu_c}°\n`
+            txt += `${body} ${btn} *Suhu Tertinggi:* ${res.suhu_tertinggi_c}°\n`
+            txt += `${body} ${btn} *Suhu Terendah:* ${res.suhu_terendah_c}°\n`
+            txt += `${foot}${line}\n`
+            txt += 'Semoga harimu menyenangkan! Jangan lupa bawa payung kalau cuacanya mendung ya! ☂'
+
+        await xp.sendMessage(chat.id, { text: txt }, { quoted: m })
+      } catch (e) {
+        err('error pada cekcuaca', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'cekgc',
     cmd: ['cekgc'],
     tags: 'Info Menu',
     desc: 'mengecek status grup',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -28,19 +77,7 @@ export default function info(ev) {
               defThumb = 'https://c.termai.cc/i0/7DbG.jpg'
 
         if (!chat.group || !gcData || !usrAdm || !botAdm) {
-          return xp.sendMessage(
-            chat.id,
-            {
-              text: !chat.group
-                ? 'perintah ini hanya bisa digunakan digrup'
-                : !gcData
-                  ? 'grup ini belum terdaftar'
-                  : !usrAdm
-                    ? 'kamu bukan admin'
-                    : 'aku bukan admin'
-            },
-            { quoted: m }
-          )
+          return xp.sendMessage(chat.id, { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : !gcData ? 'grup ini belum terdaftar' : !usrAdm ? 'kamu bukan admin' : 'aku bukan admin' }, { quoted: m })
         }
 
         let txt = `${head} ${opb} *Informasi Grup* ${clb}\n`
@@ -49,11 +86,16 @@ export default function info(ev) {
             txt += `${body} ${btn} *Diban: ${gcData?.ban ? 'Iya' : 'Tidak'}*\n`
             txt += `${body} ${btn} *Member: ${gcData?.member}*\n`
             txt += `${foot}${line}\n`
-            txt += `${head} ${opb} *Pengaturan Grup* ${clb}\n`
+            txt += `${head}${opb} *Pengaturan Grup* ${clb}\n`
+            txt += `${body} ${btn} *Anti Ch: ${gcData?.filter?.antich ? 'Aktif' : 'Tidak'}*\n`
+            txt += `${body} ${btn} *Anti Badword: ${gcData?.filter?.badword?.antibadword ? 'Aktif' : 'Tidak'}*\n`
             txt += `${body} ${btn} *Anti Link: ${gcData?.filter?.antilink ? 'Aktif' : 'Tidak'}*\n`
             txt += `${body} ${btn} *Anti TagSw: ${gcData?.filter?.antitagsw ? 'Aktif' : 'Tidak'}*\n`
             txt += `${body} ${btn} *Leave: ${gcData?.filter?.left?.leftGc ? 'Aktif' : 'Tidak'}*\n`
             txt += `${body} ${btn} *Welcome: ${gcData?.filter?.welcome?.welcomeGc ? 'Aktif' : 'Tidak'}*\n`
+            txt += `${foot}${line}\n`
+            txt += `${head}${opb} *Blacklist Kata* ${clb}\n`
+            txt += `${body} ${btn} *Kata: ${gcData?.filter?.badword?.badwordtext || '-'}*\n`
             txt += `${foot}${line}`
 
         let thumb = await xp.profilePictureUrl(metadata.id, 'image') || defThumb,
@@ -102,17 +144,21 @@ export default function info(ev) {
     desc: 'informasi fitur',
     owner: !1,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const text = args[0]?.toLowerCase(),
               cmdFile = path.join(process.cwd(), 'cmd', 'command')
 
         if (!text) {
-          return xp.sendMessage(chat.id, { text: 'gunakan:,\n.help menu' }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: `gunakan:\n${prefix}${cmd} menu` }, { quoted: m })
         }
 
         const files = fs.readdirSync(cmdFile).filter(f => f.endsWith('.js'))
@@ -147,6 +193,8 @@ export default function info(ev) {
             txt += `${body} ${btn} *Deskripsi: ${found.desc || '-'}*\n`
             txt += `${body} ${btn} *Owner Only: ${found.owner ? 'Ya' : 'Tidak'}*\n`
             txt += `${body} ${btn} *Prefix: ${found.prefix ? 'Ya' : 'Tidak'}*\n`
+            txt += `${body} ${btn} *Pajak: Rp ${found.money.toLocaleString('id-ID') || 0}*\n`
+            txt += `${body} ${btn} *Exp: ${found.exp || 0.1}*\n`
             txt += `${foot}${line}`
 
         await xp.sendMessage(chat.id, {
@@ -179,6 +227,8 @@ export default function info(ev) {
     desc: 'main Menu',
     owner: !1,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat,
@@ -189,7 +239,8 @@ export default function info(ev) {
               filterTag = args[0]?.toLowerCase(),
               cmds = ev.cmd || [],
               name = chat.pushName || m.pushName || m.key.participant,
-              commands = {}
+              commands = {},
+              allUsr = Object.keys(db().key).length
 
         for (const c of cmds) {
           const tag = c.tags || 'Other',
@@ -207,6 +258,7 @@ export default function info(ev) {
           `${body} ${btn} *Owner: ${ownerName}*\n` +
           `${body} ${btn} *Waktu: ${time}*\n` +
           `${body} ${btn} *All Cmd: ${allCmd}*\n` +
+          `${body} ${btn} *Total User: ${allUsr}*\n` +
           `${foot}${line}\n${readmore}\n`
 
         const entries = (filterTag
@@ -256,6 +308,8 @@ export default function info(ev) {
     desc: 'menampilkan kontak owner',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat,
@@ -287,6 +341,8 @@ export default function info(ev) {
     desc: 'mengecek profile orang',
     owner: !1,
     prefix: !0,
+    money: 0,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -299,7 +355,7 @@ export default function info(ev) {
               type = v => v ? 'Aktif' : 'Tidak'
 
         if (!data) {
-          return xp.sendMessage(chat.id, { text: 'kamu belum terdaftar' }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: 'kamu belum terdaftar, ulangi' }, { quoted: m })
         }
 
         let thumb
@@ -314,7 +370,10 @@ export default function info(ev) {
               ai = type(data.ai?.bell),
               chatAi = data.ai.chat,
               role = data.ai.role,
-              money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR'}).format(data?.money ?? 0)
+              money = data.moneyDb?.money.toLocaleString('id-ID'),
+              moneyInBank = data.moneyDb?.moneyInBank.toLocaleString('id-ID'),
+              exp = data.exp || 0,
+              level = ((exp + 10) / 10).toFixed(1)
 
         let txt = `${head} ${opb} *P R O F I L E* ${clb}\n`
             txt += `${body} ${btn} *Nama:* ${name}\n`
@@ -322,8 +381,13 @@ export default function info(ev) {
             txt += `${body} ${btn} *No ID:* ${noId}\n`
             txt += `${body} ${btn} *Cmd:* ${cmd}\n`
             txt += `${body} ${btn} *Ban:* ${ban}\n`
-            txt += `${body} ${btn} *Money:* ${money}\n`
-            txt += `${body}\n`
+            txt += `${foot}${line}\n\n`
+            txt += `${head} ${opb} *G A M E* ${clb}\n`
+            txt += `${body} ${btn} *Money:* Rp ${money}\n`
+            txt += `${body} ${btn} *Uang Di Bank:* Rp ${moneyInBank}\n`
+            txt += `${body} ${btn} *Level:* ${level}\n`
+            txt += `${foot}${line}\n\n`
+            txt += `${head} ${opb} *A I* ${clb}\n`
             txt += `${body} ${btn} *Ai:* ${ai}\n`
             txt += `${body} ${btn} *Chat Ai:* ${chatAi}\n`
             txt += `${body} ${btn} *Role:* ${role}\n`
@@ -344,7 +408,7 @@ export default function info(ev) {
               newsletterJid: idCh
             }
           }
-        })
+        }, { quoted: m })
       } catch (e) {
         err('error pada profile', e),
         call(xp, e, m)
@@ -359,6 +423,8 @@ export default function info(ev) {
     desc: 'status Bot',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat

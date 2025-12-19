@@ -15,18 +15,20 @@ export default function tools(ev) {
     desc: 'Upscale / enhance gambar menggunakan AI',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
-        const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
-              img = quoted?.imageMessage || m.message?.imageMessage
+        const q = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+              img = q?.imageMessage || m.message?.imageMessage
 
         if (!img)
           return xp.sendMessage(chat.id, { text: `Kirim atau reply gambar dengan caption *.hd*` }, { quoted: m })
 
-        const media = await downloadMediaMessage({ message: quoted || m.message }, 'buffer')
+        const media = await downloadMediaMessage({ message: q || m.message }, 'buffer')
         if (!media) throw new Error('media tidak terunduh')
 
         await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
@@ -63,12 +65,71 @@ export default function tools(ev) {
   })
 
   ev.on({
+    name: 'getchid',
+    cmd: ['getchid', 'getch'],
+    tags: 'Tools Menu',
+    desc: 'mengambil id ch/saluran whatsapp',
+    owner: !1,
+    prefix: !0,
+    money: 500,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      chat,
+      store
+    }) => {
+      try {
+        const q = m.message?.extendedTextMessage?.contextInfo
+        if (!q?.stanzaId) return xp.sendMessage(chat.id, { text: 'reply pesan yang diteruskan dari saluran' }, { quoted: m })
+
+        const load = await store.loadMsg(chat.id, q?.stanzaId)
+        if (!load) return xp.sendMessage(chat.id, { text: 'pastikan reply pesan yang diteruskan dari saluran' }, { quoted: m })
+
+        const info = load?.message?.[load.message?.extendedTextMessage ? 'extendedTextMessage' : 'conversation']?.contextInfo?.forwardedNewsletterMessageInfo
+
+        log(info)
+
+        if (!info?.newsletterJid) return xp.sendMessage(chat.id, { text: 'Tidak ditemukan informasi saluran.' }, { quoted: m })
+
+        let txt = `${head}${opb} Data Channel ${clb}\n`
+            txt += `${body} ${btn} *Nama: ${info?.newsletterName}*\n`
+            txt += `${body} ${btn} *ID Saluran: ${info?.newsletterJid}*\n`
+            txt += `${body} ${btn} *ID Pesan: ${info?.serverMessageId}*\n`
+            txt += `${foot}${line}`
+
+        await xp.sendMessage(chat.id, {
+          text: txt,
+          contextInfo: {
+            externalAdReply: {
+              body: `informasi saluran ${info.newsletterName}`,
+              thumbnailUrl: thumbnail,
+              mediaType: 1,
+              renderLargerThumbnail: !0
+            },
+            forwardingScore: 1,
+            isForwarded: !0,
+            forwardedNewsletterMessageInfo: {
+              newsletterJid: idCh,
+              newsletterName: footer
+            }
+          }
+        })
+      } catch (e) {
+        err('error pada getchid', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'getpp',
     cmd: ['getpp'],
     tags: 'Tools Menu',
     desc: 'mengambil foto profil orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -81,8 +142,7 @@ export default function tools(ev) {
               defThumb = 'https://c.termai.cc/i0/7DbG.jpg'
 
         if (!chat.group || !usrAdm || !botAdm || !target) {
-          return xp.sendMessage(
-            chat.id,
+          return xp.sendMessage(chat.id,
             {
               text: !chat.group
                 ? 'perintah ini hanya bisa dijalankan digrup'
@@ -115,6 +175,8 @@ export default function tools(ev) {
     desc: 'mengekstrak media viewOnce',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -132,19 +194,10 @@ export default function tools(ev) {
         }
 
         if (!reply || !mediaType || !reply.mediaKey) {
-          return xp.sendMessage(
-            chat.id,
-            { text: !reply ? 'reply pesan satu kali lihat' : 'pesan tidak didukung atau sudah dibuka' },
-            { quoted: m }
-          )
+          return xp.sendMessage(chat.id, { text: !reply ? 'reply pesan satu kali lihat' : 'pesan tidak didukung atau sudah dibuka' }, { quoted: m })
         }
 
-        const buffer = await downloadMediaMessage(
-          { message: { [`${mediaType}Message`]: reply } },
-          'buffer',
-          {},
-          { logger: xp.logger, reuploadRequest: xp.updateMediaMessage }
-        )
+        const buffer = await downloadMediaMessage({ message: { [`${mediaType}Message`]: reply } }, 'buffer', {}, { logger: xp.logger, reuploadRequest: xp.updateMediaMessage })
 
         if (!buffer) throw new Error('gagal mengunduh media')
 
@@ -170,6 +223,8 @@ export default function tools(ev) {
     desc: 'Ubah gambar jadi link dengan tmpfiles',
     owner: !1,
     prefix: !0,
+    money: 50,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -199,6 +254,8 @@ export default function tools(ev) {
     desc: 'ubah lagu jadi vn',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -231,6 +288,8 @@ export default function tools(ev) {
     desc: 'generate ptv studio',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,

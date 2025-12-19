@@ -10,10 +10,14 @@ export default function fun(ev) {
     desc: 'text to speech elevenlabs',
     owner: !1,
     prefix: !0,
+    money: 1000,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const vnList = [
@@ -40,8 +44,10 @@ export default function fun(ev) {
               vnTxt = vnList.map(v => `- ${v}`).join('\n')
 
         if (args.length < 2) {
-          return xp.sendMessage(chat.id, { text: `contoh penggunaan:\n.elevenlabs <voice> <text>\ndaftar voice:\n${vnTxt}` }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: `contoh penggunaan:\n${prefix}${cmd} <voice> <text>\ndaftar voice:\n${vnTxt}` }, { quoted: m })
         }
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
 
         const [vnRaw, ...txtPart] = args,
               vnLow = vnRaw.toLowerCase(),
@@ -72,6 +78,8 @@ export default function fun(ev) {
     desc: 'cek seberapa cantik orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -105,13 +113,15 @@ export default function fun(ev) {
     desc: 'mengecek dompet orang',
     owner: !1,
     prefix: !0,
+    money: 1,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              target = quoted?.participant || quoted?.mentionedJid?.[0],
+              target = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               user = target || m.key?.participant,
               getUser = Object.values(db().key).find(u => u.jid === user)
 
@@ -120,7 +130,7 @@ export default function fun(ev) {
           return xp.sendMessage(chat.id, { text: 'pengguna belum terdaftar di database' }, { quoted: m })
         }
 
-        const moneyDb = getUser?.money ?? 0,
+        const moneyDb = getUser?.moneyDb?.money ?? 0,
               mention = user.replace(/@s\.whatsapp\.net$/, ''),
               fmtMoney = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR'}).format(moneyDb),
               txt = `Hasil investigasi dari dompet @${mention}\n${fmtMoney} ditemukan`
@@ -140,13 +150,15 @@ export default function fun(ev) {
     desc: 'mengecek 10 dosa besar orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              target = quoted?.participant || quoted?.mentionedJid?.[0] || m.key.participant,
+              target = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               { cekDosa } = await global.func(),
               listDosa = [...cekDosa].sort(() => Math.random() - .5).slice(0, 10),
               user = target.replace(/@s\.whatsapp\.net$/, '')
@@ -169,13 +181,15 @@ export default function fun(ev) {
     desc: 'cek seberapa ganteng orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              user = quoted?.participant || quoted?.mentionedJid?.[0] || m.key?.participant || chat.id,
+              user = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               target = user.replace(/@s\.whatsapp\.net$/, ''),
               persen = Math.floor(Math.random() * 101)
 
@@ -202,13 +216,15 @@ export default function fun(ev) {
     desc: 'mengecek iq orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              user = quoted?.participant || quoted?.mentionedJid?.[0] || m.key?.participant || chat.id,
+              user = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               target = user.replace(/@s\.whatsapp\.net$/, ''),
               rand = Math.floor(Math.random() * 3.4e1) + 7.4e1,
               persen = rand <= 81 ? 81 : rand <= 87 ? 87 : rand <= 94 ? 94 : rand <= 100 ? 100 : 107,
@@ -234,6 +250,8 @@ export default function fun(ev) {
     desc: 'cek kecocokan jodoh orang',
     owner: !1,
     prefix: !0,
+    money: 105,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
@@ -292,13 +310,15 @@ export default function fun(ev) {
     desc: 'cek seberapa jomok orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              user = quoted?.participant || quoted?.mentionedJid?.[0] || m.key?.participant || chat.id,
+              user = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               target = user.replace(/@s\.whatsapp\.net$/, ''),
               persen = Math.floor(Math.random() * 101)
 
@@ -326,13 +346,15 @@ export default function fun(ev) {
     desc: 'mengecek seberapa lesbi orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              user = quoted?.participant || quoted?.mentionedJid?.[0] || m.key?.participant || chat.id,
+              user = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               target = user.replace(/@s\.whatsapp\.net$/, ''),
               persen = Math.floor(Math.random() * 101)
 
@@ -359,13 +381,15 @@ export default function fun(ev) {
     desc: 'cek seberapa mesum orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              target = quoted?.participant || quoted?.mentionedJid?.[0],
+              target = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               user = target || m.key?.participant,
               mention = user.replace(/@s\.whatsapp\.net$/, ''),
               persen = Math.floor(Math.random() * 101)
@@ -393,13 +417,15 @@ export default function fun(ev) {
     desc: 'cek seberapa pedo orang',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              user = quoted?.participant || quoted?.mentionedJid?.[0] || m.key?.participant || chat.id,
+              user = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               target = user.replace(/@s\.whatsapp\.net$/, ''),
               persen = Math.floor(Math.random() * 101)
 
@@ -426,13 +452,15 @@ export default function fun(ev) {
     desc: 'cek sifat orang secara random',
     owner: !1,
     prefix: !0,
+    money: 100,
+    exp: 0.1,
 
     run: async (xp, m, {
       chat
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
-              user = quoted?.participant || quoted?.mentionedJid?.[0] || m.key?.participant || chat.id,
+              user = quoted?.participant || quoted?.mentionedJid?.[0] || chat.sender,
               { sifatList } = await global.func(),
               target = user.replace(/@s\.whatsapp\.net$/, '')
 

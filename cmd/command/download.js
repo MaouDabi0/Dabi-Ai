@@ -10,23 +10,21 @@ export default function download(ev) {
     desc: 'mendownload video dari facebook',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
               txt = quoted?.conversation || args.join(' ')
 
         if (!txt || !/facebook\.com|fb\.watch/i.test(txt)) {
-          return xp.sendMessage(
-            chat.id,
-            { text: !txt
-                ? 'reply/masukan link fb\ncontoh: .fb https://www.facebook.com/share/v/1Dm66ZGfSY/'
-                : 'link tidak valid' },
-            { quoted: m }
-          )
+          return xp.sendMessage(chat.id, { text: !txt ? `reply/masukan link fb\ncontoh: ${prefix}${cmd} https://www.facebook.com/share/v/1Dm66ZGfSY/` : 'link tidak valid' }, { quoted: m })
         }
 
         await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
@@ -82,17 +80,21 @@ export default function download(ev) {
     desc: 'Download repository GitHub dalam bentuk .zip',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const url = args.join(' '),
               match = url.match(/github\.com\/([^\/]+)\/([^\/\s]+)/)
 
         if (!url || !url.includes('github.com')) {
-          return xp.sendMessage(chat.id, { text: !url ? 'contoh: .git https://github.com/MaouDabi0/Dabi-Ai' : 'link tidak valid' }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: !url ? `contoh: ${prefix}${cmd} https://github.com/MaouDabi0/Dabi-Ai` : `link tidak valid` }, { quoted: m })
         }
 
         await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
@@ -106,10 +108,10 @@ export default function download(ev) {
             fileName = head.headers.get('content-disposition')?.match(/filename=(.*)/)?.[1]
 
         return fileName
-          ? await xp.sendMessage(chat.id, { 
-              document: { url: zipUrl }, 
-              fileName: fileName + '.zip', 
-              mimetype: 'application/zip' 
+          ? await xp.sendMessage(chat.id, {
+              document: { url: zipUrl },
+              fileName: fileName + '.zip',
+              mimetype: 'application/zip'
             }, { quoted: m })
           : xp.sendMessage(chat.id, { text: 'Failed to get file info.' }, { quoted: m })
       } catch (e) {
@@ -126,6 +128,8 @@ export default function download(ev) {
     desc: 'mencari lagu di YouTube dan memutarnya',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -193,19 +197,21 @@ export default function download(ev) {
     desc: 'download tiktok video',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
               text = quoted?.conversation || args.join(' ')
 
         if (!text)
-          return xp.sendMessage(chat.id, {
-            text: 'reply/kirim link tiktok nya\ncontoh: .tt https://vt.tiktok.com/7494086723190721798/'
-          }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: `reply/kirim link tiktok nya\ncontoh: ${prefix}${cmd} https://vt.tiktok.com/7494086723190721798/` }, { quoted: m })
 
         if (!text.includes('tiktok.com'))
           return xp.sendMessage(chat.id, { text: 'Link tidak valid' }, { quoted: m })
@@ -268,6 +274,8 @@ export default function download(ev) {
     desc: 'download youtube mp4/mp3',
     owner: !1,
     prefix: !0,
+    money: 500,
+    exp: 0.1,
 
     run: async (xp, m, {
       args,
@@ -283,6 +291,8 @@ export default function download(ev) {
               res = await fetch(api),
               dl = await res.json()
 
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
         if (!dl.status || !dl.data?.downloads?.length)
           return xp.sendMessage(chat.id, { text: 'Gagal mengambil link download.' }, { quoted: m })
 
@@ -293,6 +303,7 @@ export default function download(ev) {
         }, { quoted: m })
       } catch (e) {
         err('error pada ytdl', e)
+        call(xp, e, m)
       }
     }
   })
