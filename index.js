@@ -8,7 +8,7 @@ import { handleCmd, ev } from './cmd/handle.js'
 import { signal } from './cmd/interactive.js'
 import { evConnect, handleSessionIssue } from './connect/evConnect.js'
 import { getGc } from './system/db/data.js'
-import { txtWlc, mode, banned, bangc } from './system/sys.js'
+import { txtWlc, txtLft, mode, banned, bangc } from './system/sys.js'
 import { getMetadata, replaceLid, saveLidCache, cleanMsg, groupCache, filter } from './system/function.js'
 
 const tempDir = path.join(dirname, '../temp')
@@ -49,6 +49,7 @@ const startBot = async () => {
 
     rl.close()
     evConnect(xp, startBot)
+    store.bind(xp.ev)
 
     xp.ev.on('messages.upsert', async ({ messages }) => {
       for (let m of messages) {
@@ -95,8 +96,8 @@ const startBot = async () => {
 
         if (group && bangc({ id, group, sender, pushName, channel })) return log(c.redBright.bold(`Grup ${id} diban`));
 
-        const chatData = { id, group, sender, pushName, channel }
-        const modeGroup = await mode(xp, chatData)
+        const cht = { id, group, sender, pushName, channel }
+        const modeGroup = await mode(xp, cht)
         if (!modeGroup) return
 
         if (text) {
@@ -110,10 +111,12 @@ const startBot = async () => {
         const ft = await filter(xp, m, text)
         ft && (
           await ft.antiLink(),
-          await ft.antiTagSw()
+          await ft.antiTagSw(),
+          await ft.badword(),
+          await ft.antiCh()
         )
 
-        await handleCmd(m, xp)
+        await handleCmd(m, xp, store)
       }
     })
 
@@ -133,18 +136,20 @@ const startBot = async () => {
                     u.action === 'demote'  ? c.cyanBright.bold(`${phone} demoted in ${g}`) : ''
         if (msg) log(msg)
 
-        if (u.action === 'add') {
-          const gcData = getGc({ id: u.id })
-
-          if (!gcData || !gcData.filter?.welcome?.welcomeGc) return
-
+        if (u.action === 'add' || u.action === 'remove') {
+          const gcData = getGc({ id: u.id }),
+                isAdd = u.action === 'add',
+                cfg = isAdd ? gcData?.filter?.welcome?.welcomeGc : gcData?.filter?.left?.leftGc
+        
+          if (!gcData || !cfg) return
+        
           const id = { id: u.id },
-                { txt } = await txtWlc(xp, id),
+                { txt } = await (isAdd ? txtWlc : txtLft)(xp, id),
                 jid = pid.phoneNumber || idToPhone[pid],
                 mention = '@' + (jid?.split('@')[0] || jid),
-                textwlc = txt.replace(/@user|%user/gi, mention)
-
-          await xp.sendMessage(u.id, { text: textwlc, mentions: [jid]})
+                text = txt.replace(/@user|%user/gi, mention)
+        
+          await xp.sendMessage(u.id, { text, mentions: [jid] })
         }
       }
     })
