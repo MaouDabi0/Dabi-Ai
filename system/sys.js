@@ -70,13 +70,10 @@ const grupify = async (xp, id, sender) => {
 
 export const txtWlc = async (xp, chat) => {
   try {
-    const gcData = getGc(chat)
-
-    const id = chat.id,
-          meta = groupCache.get(id) || await getMetadata(id, xp),
-          name = meta?.subject || id,
+    const gcData = getGc(chat),
+          meta = groupCache.get(chat.id) || await getMetadata(chat.id, xp),
           txt = gcData?.filter?.welcome?.welcomeText?.trim()
-                || `selamat datang @user digrup ${name}`;
+                || `selamat datang @user digrup ${meta?.subject || chat.id}`;
 
     return { txt };
   } catch (e) {
@@ -84,12 +81,30 @@ export const txtWlc = async (xp, chat) => {
   }
 }
 
-export const mode = async (xp, chatData) => {
-  if (!chatData) return !1
+export const txtLft = async (xp, chat) => {
+  try {
+    const gcData = getGc(chat),
+          meta = groupCache.get(chat.id) || await getMetadata(chat.id, xp),
+          txt = gcData?.filter?.left?.leftTxt?.trim() || `%user keluar dari grup ${meta?.subject || chat.id}`
+
+    return { txt }
+  } catch (e) {
+    console.error('txtLft error', e)
+  }
+}
+
+export const mode = async (xp, cht) => {
+  if (!cht) return !1
 
   const cfg = JSON.parse(fs.readFileSync('./system/set/config.json', 'utf-8')),
         isGroupMode = cfg.botSetting?.isGroup,
-        result = (chatData.group && isGroupMode) || (!chatData.group && !isGroupMode)
+        ownerList = cfg.ownerSetting?.ownerNumber || [],
+        sender = cht.sender?.replace(/@s\.whatsapp\.net$/, ''),
+        isOwner = ownerList.includes(sender)
+
+  if (isOwner) return !0
+
+  const result = (cht.group && isGroupMode) || (!cht.group && !isGroupMode)
 
   return result ? !0 : !1
 }

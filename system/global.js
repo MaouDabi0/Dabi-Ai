@@ -3,13 +3,14 @@ import path from 'path'
 import readline from 'readline'
 import { fileURLToPath } from 'url'
 import sys from './sys.js'
-import { number } from './helper.js'
+import { number, makeInMemoryStore } from './helper.js'
 import { call, func } from './function.js'
 import getMessageContent from './msg.js'
 import { db, saveDb } from './db/data.js'
 
 const filename = fileURLToPath(import.meta.url),
-       dirname = path.dirname(filename);
+       dirname = path.dirname(filename),
+       store = makeInMemoryStore()
 
 const config = './system/set/config.json',
       readmore = '\u200E'.repeat(4e3 + 1),
@@ -25,6 +26,7 @@ Object.assign(global, {
   filename,
   dirname,
   readmore,
+  store,
   call,
   func,
   getMessageContent,

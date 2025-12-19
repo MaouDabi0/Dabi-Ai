@@ -115,10 +115,11 @@ async function filter(xp, m, text) {
 
   const filter = {
     link: async t => !!t && /chat\.whatsapp\.com/i.test(t),
+    linkCh: async t => !!t && /whatsapp\.com\/channel/i.test(t),
 
     antiLink: async () => {
       const txt = m.message?.extendedTextMessage?.text
-      if (!botAdm) return
+      if (!gcData || !botAdm) return
 
       const isLink = await filter.link(txt)
       return (gcData?.filter?.antilink && botAdm && !usrAdm && isLink)
@@ -128,10 +129,51 @@ async function filter(xp, m, text) {
 
     antiTagSw: async () => {
       const txt = m.message?.groupStatusMentionMessage
-      if (!botAdm) return
+      if (!gcData || !botAdm) return
 
       return (gcData?.filter?.antitagsw && botAdm && !usrAdm && txt)
         ? await xp.sendMessage(chat.id, { delete: m.key }).catch(() => {})
+        : !1
+    },
+
+    badword: async () => {
+      if (!gcData || !botAdm) return
+
+      const txt = m.message?.extendedTextMessage?.text,
+            cfg = gcData?.filter?.badword,
+            list = cfg?.badwordtext,
+            isBot = m.key?.fromMe
+
+      if (!cfg?.antibadword || !txt || !Array.isArray(list) || isBot) return
+
+      const hit = list.some(w => txt.toLowerCase().includes(w.toLowerCase()))
+
+      return hit && !usrAdm
+        ? await xp.sendMessage(chat.id, { delete: m.key }).catch(() => {})
+        : !1
+    },
+
+    antiCh: async () => {
+      if (!gcData || !botAdm || !gcData?.filter?.antich || usrAdm || m.key?.fromMe) return !1
+
+      const ch =
+        m.message?.extendedTextMessage?.contextInfo ??
+        m.message?.imageMessage?.contextInfo ??
+        m.message?.videoMessage?.contextInfo ??
+        m.message?.audioMessage?.contextInfo ??
+        m.message?.stickerMessage?.contextInfo
+
+      let info = ch?.forwardedNewsletterMessageInfo
+
+      !info && ch?.stanzaId && global.store && (
+        info = (await (async () => {
+          const msg = (await global.store.loadMsg(chat.id, ch.stanzaId))?.message
+          return msg && Object.values(msg)[0]
+        })())?.contextInfo?.forwardedNewsletterMessageInfo
+      )
+
+      return info?.newsletterJid
+        ? xp.sendMessage(chat.id, { delete: m.key }).catch(() => !1)
         : !1
     }
   }
