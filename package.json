@@ -1,15 +1,29 @@
 {
   "name": "Dabi-Ai",
-  "version": "1.4.2",
-  "description": "",
+  "version": "1.4.3",
+  "description": "Scripts Bot WhatsApp",
   "main": "index.js",
   "scripts": {
     "start": "node index"
   },
-  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hyrox/Dabi-Ai.git"
+  },
+  "keywords": [
+    "Dabi",
+    "scripts",
+    "sc",
+    "bot",
+    "Sc md"
+  ],
   "author": "Yuli",
   "license": "ISC",
   "type": "module",
+  "bugs": {
+    "url": "https://github.com/Hyrox/Dabi-Ai/issues"
+  },
+  "homepage": "https://github.com/Hyrox/Dabi-Ai#readme",
   "dependencies": {
     "adm-zip": "^0.5.16",
     "axios": "^1.12.2",

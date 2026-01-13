@@ -3,22 +3,32 @@ import c from 'chalk'
 import fs from 'fs'
 import path from 'path'
 import pino from 'pino'
+import readline from 'readline'
 import { makeWASocket, useMultiFileAuthState } from 'baileys'
 import { handleCmd, ev } from './cmd/handle.js'
 import { signal } from './cmd/interactive.js'
 import { evConnect, handleSessionIssue } from './connect/evConnect.js'
-import { getGc } from './system/db/data.js'
+import { autofarm } from './system/gamefunc.js'
+import getMessageContent from './system/msg.js'
+import { init, authFarm } from './system/db/data.js'
 import { txtWlc, txtLft, mode, banned, bangc } from './system/sys.js'
-import { getMetadata, replaceLid, saveLidCache, cleanMsg, groupCache, filter } from './system/function.js'
+import { getMetadata, replaceLid, saveLidCache, cleanMsg, filter, imgCache, _imgTmp, afk } from './system/function.js'
 
-const tempDir = path.join(dirname, '../temp')
-fs.existsSync(tempDir) || fs.mkdirSync(tempDir, { recursive: !0 })
-
+global.rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+global.q = (t) => new Promise((r) => rl.question(t, r))
 global.lidCache = {}
-const logLevel = pino({ level: 'silent' })
-let xp
 
+const logLevel = pino({ level: 'silent' }),
+      tempDir = path.join(dirname, '../temp')
+
+let xp,
+    ft
+
+if (!imgCache.url) await _imgTmp()
+
+fs.existsSync(tempDir) || fs.mkdirSync(tempDir, { recursive: !0 })
 setInterval(() => console.clear(), 6e5)
+init
 
 const startBot = async () => {
   try {
@@ -50,32 +60,33 @@ const startBot = async () => {
     rl.close()
     evConnect(xp, startBot)
     store.bind(xp.ev)
+    autofarm()
 
     xp.ev.on('messages.upsert', async ({ messages }) => {
       for (let m of messages) {
-        if (m?.message?.messageContextInfo?.deviceListMetadata) continue
+        if (m?.message?.messageContextInfo?.deviceListMetadata && !Object.keys(m.message).some(k => k === 'conversation' || k === 'extendedTextMessage')) continue
 
         m = cleanMsg(m)
         m = replaceLid(m)
 
-        const { id, group, sender, pushName, channel } = global.chat(m, botName),
+        const chat = global.chat(m, botName),
               time = global.time.timeIndo('Asia/Jakarta', 'HH:mm'),
-              meta = group
-                ? (groupCache.get(id) || await getMetadata(id, xp) || {})
+              meta = chat.group
+                ? (groupCache.get(chat.id) || await getMetadata(chat.id, xp) || {})
                 : {},
-              groupName = group ? meta?.subject || 'Grup' : channel ? id : '',
-              { text, media } = global.getMessageContent(m),
-              name = pushName || sender || id
+              groupName = chat.group ? meta?.subject || 'Grup' : chat.channel ? chat.id : '',
+              { text, media } = getMessageContent(m),
+              name = chat.pushName || chat.sender || chat.id,
+              isMode = await mode(xp, chat),
+              gcData = chat.group && getGc(chat)
 
-        if (group && Object.keys(meta).length) {
-          await saveLidCache(meta)
-        }
+        if (chat.group && Object.keys(meta).length) { await saveLidCache(meta) }
 
         log(
           c.bgGrey.yellowBright.bold(
-            group
+            chat.group
               ? `[ ${groupName} | ${name} ]`
-              : channel
+              : chat.channel
                 ? `[ ${groupName} ]`
                 : `[ ${name} ]`
           ) +
@@ -92,29 +103,30 @@ const startBot = async () => {
           )
         )
 
-        if (banned(sender)) return log(c.yellowBright.bold(`${sender} diban`))
+        if (banned(chat)) return log(c.yellowBright.bold(`${chat.sender} diban`))
+        if (chat.group && bangc(chat)) return
 
-        if (group && bangc({ id, group, sender, pushName, channel })) return log(c.redBright.bold(`Grup ${id} diban`));
+        await afk(xp, m)
+        await authFarm(m)
 
-        const cht = { id, group, sender, pushName, channel }
-        const modeGroup = await mode(xp, cht)
-        if (!modeGroup) return
-
-        if (text) {
-          try {
-            await signal(text, m, sender, id, xp, ev)
-          } catch (e) {
-            err('error pada response', e)
-          }
+        if (chat.group) {
+          ft = await filter(xp, m, text)
+          ft && (
+            ft.antiLink(),
+            ft.antiTagSw(),
+            ft.badword(),
+            ft.antiCh()
+          )
         }
 
-        const ft = await filter(xp, m, text)
-        ft && (
-          await ft.antiLink(),
-          await ft.antiTagSw(),
-          await ft.badword(),
-          await ft.antiCh()
-        )
+        if (!isMode) return
+
+        if (gcData) {
+          const { usrAdm, botAdm } = await grupify(xp, m)
+          if (gcData.filter?.mute && !usrAdm) return !1
+        }
+
+        if (text) await signal(text, m, xp, ev)
 
         await handleCmd(m, xp, store)
       }
@@ -134,21 +146,20 @@ const startBot = async () => {
                     u.action === 'remove'  ? c.redBright.bold(`- ${phone} left ${g}`) :
                     u.action === 'promote' ? c.magentaBright.bold(`${phone} promoted in ${g}`) :
                     u.action === 'demote'  ? c.cyanBright.bold(`${phone} demoted in ${g}`) : ''
-        if (msg) log(msg)
 
         if (u.action === 'add' || u.action === 'remove') {
           const gcData = getGc({ id: u.id }),
                 isAdd = u.action === 'add',
                 cfg = isAdd ? gcData?.filter?.welcome?.welcomeGc : gcData?.filter?.left?.leftGc
-        
+
           if (!gcData || !cfg) return
-        
+
           const id = { id: u.id },
                 { txt } = await (isAdd ? txtWlc : txtLft)(xp, id),
                 jid = pid.phoneNumber || idToPhone[pid],
                 mention = '@' + (jid?.split('@')[0] || jid),
                 text = txt.replace(/@user|%user/gi, mention)
-        
+
           await xp.sendMessage(u.id, { text, mentions: [jid] })
         }
       }
@@ -161,7 +172,6 @@ const startBot = async () => {
               a = v.participantAlt || v.participant || v.author,
               f = a && m?.participants?.length ? m.participants.find(p => p.id === a) : 0
         v.author = f?.phoneNumber || a
-        log(c.cyanBright.bold('Settings: ', m?.subject, '\n'), [v])
       })
     )
   } catch (e) {
