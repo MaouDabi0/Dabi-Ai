@@ -1,16 +1,15 @@
 import fetch from 'node-fetch'
 import { vn } from '../interactive.js'
-import { groupCache } from '../../system/function.js'
 
 export default function fun(ev) {
   ev.on({
-    name: 'elevenlabs',
-    cmd: ['elevenlabs'],
+    name: 'artinama',
+    cmd: ['artinama'],
     tags: 'Fun Menu',
-    desc: 'text to speech elevenlabs',
+    desc: 'melihat artinama orang',
     owner: !1,
     prefix: !0,
-    money: 1000,
+    money: 100,
     exp: 0.1,
 
     run: async (xp, m, {
@@ -20,52 +19,24 @@ export default function fun(ev) {
       prefix
     }) => {
       try {
-        const vnList = [
-          'prabowo',
-          'yanzgpt',
-          'bella',
-          'megawati',
-          'echilling',
-          'adam',
-          'thomas_shelby',
-          'michi_jkt48',
-          'nokotan',
-          'jokowi',
-          'boboiboy',
-          'keqing',
-          'anya',
-          'yanami_anna',
-          'MasKhanID',
-          'Myka',
-          'raiden',
-          'CelzoID',
-          'dabi'
-        ],
-              vnTxt = vnList.map(v => `- ${v}`).join('\n')
+        const nama = args.join(' ')
 
-        if (args.length < 2) {
-          return xp.sendMessage(chat.id, { text: `contoh penggunaan:\n${prefix}${cmd} <voice> <text>\ndaftar voice:\n${vnTxt}` }, { quoted: m })
-        }
+        if (!nama) return xp.sendMessage(chat.id, { text: `masukan nama contoh:\n${prefix}${cmd}` }, { quoted: m })
 
-        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+        const url = await fetch(`https://api.ureshii.my.id/api/primbon/arti-nama?nama=${encodeURIComponent(nama)}`).then(r => r.json())
 
-        const [vnRaw, ...txtPart] = args,
-              vnLow = vnRaw.toLowerCase(),
-              txtLn = txtPart.join(' '),
-              pitch = 0,
-              speed = 0.9,
-              url = await fetch(`${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(txtLn)}&voice=${vnLow}&pitch=${pitch}&speed=${speed}&key=${termaiKey}`)
+        if (!url.info?.status) return xp.sendMessage(chat.id, { text: 'status api false' }, { quoted: m })
 
-        if (!vnList.includes(vnLow)) {
-          return xp.sendMessage(chat.id, { text: `voice tidak valid\nlist voice:\n${vnTxt}`})
-        }
+        let txt = `${head}${opb} *A R T I  N A M A* ${clb}\n`
+            txt += `${body} ${btn} *Nama:* ${url?.nama}\n`
+            txt += `${body} ${btn} *Arti Nama:*\n`
+            txt += `${foot}${line}\n`
+            txt += `${readmore}\n`
+            txt += `${url?.arti}`
 
-        if (!url.ok) throw new Error(`HTTP ${url.status}`)
-
-        const audio = Buffer.from(await url.arrayBuffer())
-        await vn(xp, chat.id, audio, m)
+        await xp.sendMessage(chat.id, { text: txt }, { quoted: m })
       } catch (e) {
-        err('error pada elevenlabs', e)
+        err('error pada artinama', e)
         call(xp, e, m)
       }
     }
@@ -471,6 +442,103 @@ export default function fun(ev) {
         await xp.sendMessage(chat.id, { text: teks, mentions: [user] }, { quoted: m })
       } catch (e) {
         err('error pada ceksifat', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'claim',
+    cmd: ['claim'],
+    tags: 'Fun Menu',
+    desc: 'mengeclaim orang',
+    owner: !1,
+    prefix: !0,
+    money: 100,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+         if (!chat.group) return xp.sendMessage(chat.id, { text: 'perintah ini hanya bisa digunakan digrup' }, { quoted: m })
+
+          const q = m.message?.extendedTextMessage?.contextInfo,
+                target = q?.participant || q?.mentionedJid?.[0]
+
+          if (!target) return xp.sendMessage(chat.id, { text: `reply atau tag target` }, { quoted: m })
+
+          await xp.sendMessage(chat.id, { text: `@${target.replace(/@s\.whatsapp\.net$/, '')} telah di claim oleh @${chat.sender.replace(/@s\.whatsapp\.net$/, '')} `, mentions: [target, chat.sender] }, { quoted: m })
+      } catch (e) {
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'elevenlabs',
+    cmd: ['elevenlabs'],
+    tags: 'Fun Menu',
+    desc: 'text to speech elevenlabs',
+    owner: !1,
+    prefix: !0,
+    money: 1000,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const vnList = [
+          'prabowo',
+          'yanzgpt',
+          'bella',
+          'megawati',
+          'echilling',
+          'adam',
+          'thomas_shelby',
+          'michi_jkt48',
+          'nokotan',
+          'jokowi',
+          'boboiboy',
+          'keqing',
+          'anya',
+          'yanami_anna',
+          'MasKhanID',
+          'Myka',
+          'raiden',
+          'CelzoID',
+          'dabi'
+        ],
+              vnTxt = vnList.map(v => `- ${v}`).join('\n')
+
+        if (args.length < 2) return xp.sendMessage(chat.id, { text: `contoh penggunaan:\n${prefix}${cmd} <voice> <text>\ndaftar voice:\n${vnTxt}` }, { quoted: m })
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        const [vnRaw, ...txtPart] = args,
+              vnLow = vnRaw.toLowerCase(),
+              txtLn = txtPart.join(' '),
+              pitch = 0,
+              speed = 0.9,
+              url = await fetch(`${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(txtLn)}&voice=${vnLow}&pitch=${pitch}&speed=${speed}&key=${termaiKey}`)
+
+        if (!vnList.includes(vnLow)) {
+          return xp.sendMessage(chat.id, { text: `voice tidak valid\nlist voice:\n${vnTxt}`})
+        }
+
+        if (!url.ok) throw new Error(`HTTP ${url.status}`)
+
+        const audio = Buffer.from(await url.arrayBuffer())
+        await vn(xp, audio, m)
+      } catch (e) {
+        err('error pada elevenlabs', e)
         call(xp, e, m)
       }
     }

@@ -2,7 +2,6 @@ import fs from 'fs'
 import path from 'path'
 import AdmZip from "adm-zip"
 import { exec } from 'child_process'
-import { getGc, saveGc } from '../../system/db/data.js'
 const config = path.join(dirname, './set/config.json'),
       pkg = JSON.parse(fs.readFileSync(path.join(dirname, '../package.json'))),
       temp = path.join(dirname, '../temp')
@@ -20,7 +19,8 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd
     }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
@@ -42,11 +42,10 @@ export default function owner(ev) {
 
         cfg.ownerSetting.ownerNumber.push(target)
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2), 'utf-8')
-        global.ownerNumber = cfg.ownerSetting.ownerNumber
 
         xp.sendMessage(chat.id, { text: `@${target} berhasil ditambahkan`, mentions: [targetRaw] }, { quoted: m })
       } catch (e) {
-        err('error pada addowner', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -64,7 +63,9 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         if (!chat.group) return xp.sendMessage(chat.id, { text: 'perintah ini hanya bisa digunakan digrup' }, { quoted: m })
@@ -72,9 +73,7 @@ export default function owner(ev) {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
               target = quoted?.participant || quoted?.mentionedJid?.[0]
 
-        if (!target) {
-          return xp.sendMessage(chat.id, { text: 'reply/tag target\ncontoh: .adduang @pengguna/reply 10000' }, { quoted: m })
-        }
+        if (!target) return xp.sendMessage(chat.id, { text: `reply/tag target\ncontoh: ${prefix}${cmd} @pengguna/reply 10000` }, { quoted: m })
 
         const userDb = Object.values(db().key).find(u => u.jid === target),
               nominal = Number(args[1]) || Number(args[0]),
@@ -84,16 +83,14 @@ export default function owner(ev) {
           return xp.sendMessage(chat.id, { text: 'nominal tidak valid' }, { quoted: m })
         }
 
-        if (!userDb) {
-          return xp.sendMessage(chat.id, { text: 'pengguna belum terdaftar' }, { quoted: m })
-        }
+        if (!userDb) return xp.sendMessage(chat.id, { text: 'pengguna belum terdaftar' }, { quoted: m })
 
         userDb.moneyDb.moneyInBank += nominal
-        saveDb()
+        save.db()
 
         await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil ditambahkan ke bank @${mention}`, mentions: [target] }, { quoted: m })
       } catch (e) {
-        err('error pada addmoney', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -110,7 +107,8 @@ export default function owner(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd
     }) => {
       try {
         const name = global.botName.replace(/\s+/g, '_'),
@@ -148,14 +146,14 @@ export default function owner(ev) {
           document: fs.readFileSync(p),
           mimetype: 'application/zip',
           fileName: zipName,
-          caption: `Backup berhasil dibuat.\nNama file: ${zipName}`
+          caption: `${cmd} berhasil dibuat.\nNama file: ${zipName}`
         }, m && m.key ? { quoted: m } : {})
 
         setTimeout(() => {
           if (fs.existsSync(p)) fs.unlinkSync(p)
         }, 5e3)
       } catch (e) {
-        err('error pada backup', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -173,35 +171,28 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd
     }) => {
       try {
-        const ctx = m.message?.extendedTextMessage?.contextInfo || {},
-              nomor = args[0]
-                ? await global.number(args[0])
-                : (ctx.mentionedJid?.[0] || ctx.participant || '')
-                    .replace(/@s\.whatsapp\.net$/, ''),
-              found = Object.keys(db().key).some(k => {
-                const u = db().key[k]
-                if (u.jid.replace(/@s\.whatsapp\.net$/i, '') === nomor) {
-                  u.ban = !0
-                  return !0
-                }
-                return !1
-              })
+        const ctx = m.message?.extendedTextMessage?.contextInfo,
+              nomor = global.number(args.join(' ')) + '@s.whatsapp.net',
+              target = ctx?.mentionedJid?.[0] || ctx?.participant || nomor,
+              userdb = Object.values(db().key).find(u => u.jid === target)
 
-        const errorMsg = !nomor
-          ? 'reply/tag atau input nomor'
-          : !found
-            ? 'nomor belum terdaftar'
-            : null
+        if (!target || !userdb) return xp.sendMessage(chat.id, { text: !target ? 'reply/tag atau input nomor' : 'nomor belum terdaftar' }, { quoted: m })
 
-        if (errorMsg) return xp.sendMessage(chat.id, { text: errorMsg }, { quoted: m })
+        const opsi = !!userdb?.ban
 
-        saveDb(),
-        xp.sendMessage(chat.id, { text: `${nomor} diban` }, { quoted: m })
+        if ((target && opsi)) return xp.sendMessage(chat.id, { text: 'nomor sudah diban' }, { quoted: m })
+
+        userdb.ban = !0
+        save.db()
+
+        await xp.sendMessage(chat.id, { text: `${target.replace(/@s\.whatsapp\.net$/, '')} diban` }, { quoted: m })
       } catch (e) {
-        err('error pada banchat', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
       }
     }
   })
@@ -217,26 +208,24 @@ export default function owner(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const gc = getGc(chat)
 
-        if (!chat.group || !gc) {
-          return xp.sendMessage(
-            chat.id,
-            { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : 'grup ini belum terdaftar' },
-            { quoted: m }
-          )
+        if (!chat.group || !gc || (chat.id && !!gc?.ban)) {
+          return xp.sendMessage(chat.id, { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : !gc ? `grup ini belum terdaftar ketik ${prefix}daftargc` : 'grup ini sudah diban' }, { quoted: m })
         }
 
         gc.ban = !0
+        save.gc()
 
-        saveGc()
-        xp.sendMessage(chat.id, { react: { text: '✅', key: m.key } })
+        await xp.sendMessage(chat.id, { react: { text: '✅', key: m.key } })
 
       } catch (e) {
-        err('error pada bangrup', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -253,7 +242,8 @@ export default function owner(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd
     }) => {
       try {
         const tmpdir = path.join(dirname, '../temp')
@@ -266,7 +256,7 @@ export default function owner(ev) {
           : (file.forEach(f => fs.rmSync(path.join(tmpdir, f), { recursive: !0, force: !0 })),
             await xp.sendMessage(chat.id, { text: 'temp berhasil dibersihkan' }, { quoted: m }))
       } catch (e) {
-        err('error pada cleartmp', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -282,7 +272,11 @@ export default function owner(ev) {
     money: 0,
     exp: 0.1,
 
-    run: async (xp, m, { args, chat }) => {
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd
+    }) => {
       try {
         const quoted = m.message?.extendedTextMessage?.contextInfo,
               target = args[0]
@@ -303,11 +297,10 @@ export default function owner(ev) {
 
         list.splice(index, 1)
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2), 'utf-8')
-        global.ownerNumber = cfg.ownerSetting.ownerNumber
-        xp.sendMessage(chat.id, { text: `${target} berhasil dihapus` }, { quoted: m })
+        await xp.sendMessage(chat.id, { text: `${target} berhasil dihapus` }, { quoted: m })
 
       } catch (e) {
-        err('error pada delowner', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -347,11 +340,11 @@ export default function owner(ev) {
         if (userDb.moneyDb?.money < nominal) return xp.sendMessage(chat.id, { text: `uang pengguna tersisa ${userDb?.moneyDb?.money.toLocaleString('id-ID')}` }, { quoted: m })
 
         userDb.moneyDb.money -= nominal
-        saveDb()
+        save.db()
 
         await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil disita` }, { quoted: m })
       } catch (e) {
-        err('error pada deluang', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -370,16 +363,16 @@ export default function owner(ev) {
     run: async (xp, m, {
       args,
       chat,
-      cmdText
+      cmd,
+      text
     }) => {
       try {
         const code = args.join(' ').trim()
 
-        if (!code)
-          return xp.sendMessage(chat.id, { text: 'isi eval yang akan dijalankan' }, { quoted: m })
+        if (!code) return xp.sendMessage(chat.id, { text: `isi ${cmd} yang akan dijalankan` }, { quoted: m })
 
         let result
-        if (cmdText === '~>') {
+        if (text === '~>') {
           await (async () => {
             let logs = []
             const oriLog = log
@@ -392,7 +385,7 @@ export default function owner(ev) {
             return xp.sendMessage(chat.id, { text: output }, { quoted: m })
           })()
         } else {
-          result = cmdText === '=>'
+          result = text === '=>'
             ? await eval(`(async () => (${code}))()`)
             : await eval(`(async () => { return ${code} })()`)
 
@@ -400,11 +393,7 @@ export default function owner(ev) {
             ? JSON.stringify(result, null, 2)
             : String(result)
 
-          await xp.sendMessage(chat.id, {
-            text: (output && output !== 'undefined')
-              ? output
-              : 'code berhasil dijalankan tanpa output'
-          }, { quoted: m })
+          await xp.sendMessage(chat.id, { text: (output && output !== 'undefined') ? output : 'code berhasil dijalankan tanpa output' }, { quoted: m })
         }
       } catch (e) {
         log('error pada eval', e)
@@ -425,13 +414,15 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const num = parseInt(args),
               bank = path.join(dirname,'./db/bank.json')
 
-        if (!args || isNaN(num)) return xp.sendMessage(chat.id,{ text: 'nominal tidak valid\ncontoh: .isibank 10000' },{ quoted: m })
+        if (!args || isNaN(num)) return xp.sendMessage(chat.id,{ text: `nominal tidak valid\ncontoh: ${prefix}${cmd} 10000` },{ quoted: m })
 
         const saldoBank = JSON.parse(fs.readFileSync(bank,'utf-8')),
               saldoLama = saldoBank.key?.saldo || 0,
@@ -441,13 +432,9 @@ export default function owner(ev) {
 
         fs.writeFileSync(bank, JSON.stringify(saldoBank,null,2))
 
-        await xp.sendMessage(
-          chat.id,
-          { text: `Saldo bank ditambah: ${num}\nTotal: ${saldoBaru}` },
-          { quoted: m }
-        )
+        await xp.sendMessage(chat.id, { text: `Saldo bank ditambah: Rp ${num.toLocaleString('id-ID')}\nTotal: Rp ${saldoBaru.toLocaleString('id-ID')}` }, { quoted: m })
       } catch (e) {
-        err('error pada isibank', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -465,7 +452,9 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const arg = args[0]?.toLowerCase(),
@@ -474,17 +463,14 @@ export default function owner(ev) {
               type = v => v ? 'Group' : 'Private',
               md = type(global.isGroup)
 
-        if (!['private', 'group'].includes(arg)) {
-          return xp.sendMessage(chat.id, { text: `gunakan: .mode group/private\n\nmode: ${md}` }, { quoted: m })
-        }
+        if (!['private', 'group'].includes(arg)) return xp.sendMessage(chat.id, { text: `gunakan: ${prefix}${cmd} group/private\n\n${cmd}: ${md}` }, { quoted: m })
 
         cfg.botSetting.isGroup = input
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2))
-        global.isGroup = input
 
-        xp.sendMessage(chat.id, { text: `mode berhasil diganti ${input ? 'ke private' : 'ke group'}` }, { quoted: m })
+        xp.sendMessage(chat.id, { text: `${cmd} berhasil diganti ${input ? 'ke group' : 'ke private'}` }, { quoted: m })
       } catch (e) {
-        err('error pada mode', )
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -502,35 +488,27 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd
     }) => {
       try {
-        const ctx = m.message?.extendedTextMessage?.contextInfo || {},
-              nomor = args[0]
-                ? await global.number(args[0])
-                : (ctx.mentionedJid?.[0] || ctx.participant || '')
-                    .replace(/@s\.whatsapp\.net$/, ''),
-              found = Object.keys(db().key).some(k => {
-                const u = db().key[k]
-                if (u.jid.replace(/@s\.whatsapp\.net$/i, '') === nomor) {
-                  u.ban = !1
-                  return !0
-                }
-                return !1
-              })
+        const ctx = m.message?.extendedTextMessage?.contextInfo,
+              nomor = global.number(args.join(' ')) + '@s.whatsapp.net',
+              target = ctx?.mentionedJid?.[0] || ctx?.participant || nomor,
+              userdb = Object.values(db().key).find(u => u.jid === target)
 
-        const errorMsg = !nomor
-          ? 'reply/tag atau input nomor'
-          : !found
-            ? 'nomor belum terdaftar'
-            : null
+        if (!target || !userdb) return xp.sendMessage(chat.id, { text: !target ? 'reply/tag atau input nomor' : 'nomor belum terdaftar' }, { quoted: m })
 
-        if (errorMsg) return xp.sendMessage(chat.id, { text: errorMsg }, { quoted: m })
+        const opsi = !!userdb?.ban
 
-        saveDb()
-        xp.sendMessage(chat.id, { text: `${nomor} diunban` }, { quoted: m })
+        if ((target && !opsi)) return xp.sendMessage(chat.id, { text: 'nomor tidak diban' }, { quoted: m })
+
+        userdb.ban = !1
+        save.db()
+        await xp.sendMessage(chat.id, { text: `${target.replace(/@s\.whatsapp\.net$/, '')} diunban` }, { quoted: m })
       } catch (e) {
-        err('Error pada unban', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
       }
     }
   })
@@ -546,26 +524,24 @@ export default function owner(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const gc = getGc(chat)
 
-        if (!chat.group || !gc) {
-          return xp.sendMessage(
-            chat.id,
-            { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : 'grup ini belum terdaftar' },
-            { quoted: m }
-          )
+        if (!chat.group || !gc || !gc?.ban) {
+          return xp.sendMessage(chat.id, { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : !gc ? `grup ini belum terdaftar ketik ${prefix}daftargc untuk mendaftar`: 'grup ini tidak diban' }, { quoted: m })
         }
 
         gc.ban = !1
 
-        saveGc()
+        save.gc()
         xp.sendMessage(chat.id, { react: { text: '✅', key: m.key } })
 
       } catch (e) {
-        err('error pada bangrup', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -583,28 +559,23 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const arg = args[0]?.toLowerCase(),
               cfg = JSON.parse(fs.readFileSync(config, 'utf-8')),
               input = arg === 'on'
 
-        if (!['on', 'off'].includes(arg)) {
-          return xp.sendMessage(chat.id, {
-            text: `gunakan: .public on/off\n\nstatus: ${global.public}`
-          }, { quoted: m })
-        }
+        if (!['on', 'off'].includes(arg)) return xp.sendMessage(chat.id, { text: `gunakan: ${prefix}${cmd} on/off\n\nstatus: ${global.public}` }, { quoted: m })
 
         cfg.ownerSetting.public = input
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2))
-        global.public = input
 
-        xp.sendMessage(chat.id, {
-          text: `public ${input ? 'diaktifkan' : 'dimatikan'}`
-        }, { quoted: m })
+        xp.sendMessage(chat.id, { text: `${cmd} ${input ? 'diaktifkan' : 'dimatikan'}` }, { quoted: m })
       } catch (e) {
-        err('error pada public', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -622,7 +593,8 @@ export default function owner(ev) {
 
     run: async (xp, m, {
       args,
-      chat
+      chat,
+      cmd
     }) => {
       try {
         const cmd = args.join(' ')
@@ -634,7 +606,7 @@ export default function owner(ev) {
               xp.sendMessage(chat.id, { text: text.trim() }, { quoted: m })
             })
       } catch (e) {
-        err('error pada shell', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }

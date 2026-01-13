@@ -10,7 +10,6 @@ export default function download(ev) {
     desc: 'mendownload video dari facebook',
     owner: !1,
     prefix: !0,
-    money: 500,
     exp: 0.1,
 
     run: async (xp, m, {
@@ -116,6 +115,57 @@ export default function download(ev) {
           : xp.sendMessage(chat.id, { text: 'Failed to get file info.' }, { quoted: m })
       } catch (e) {
         err('error pada gitclone', e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'pindl',
+    cmd: ['pindl', 'pin'],
+    tags: 'Download Menu',
+    desc: 'mendownload video dari pin',
+    owner: !1,
+    prefix: !0,
+    money: 1000,
+    exp: 0.3,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const url = args.join(' ') || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation,
+              match = url?.match(/pin\.it/)
+
+        if (!url || !url.includes('pin.it')) return xp.sendMessage(chat.id, { text: `reply/kirim link pin nya contoh:\n${prefix}${cmd} https://pin.it/1YNzogEJv` }, { quoted: m })
+
+        await xp.sendMessage(chat.id, { react: { text: '⏳', key: m.key } })
+
+        const api = await fetch(`https://api.deline.web.id/downloader/pinterest?url=${encodeURIComponent(url)}`).then(r => r.json())
+
+        if (!api.status) return xp.sendMessage(chat.id, { text: 'status api false' }, { quoted: m })
+
+        const res = api?.result,
+              type = res.video ? 'Video' : (res.image && res.image !== 'Tidak ada' ? 'Image' : '-'),
+              valid = v => typeof v === 'string' && v !== 'Tidak ada'
+
+        let txt = `${head}${opb} *P I N  D L* ${clb}\n`
+            txt += `${body} ${btn} *Link:* ${res.original_url}\n`
+            txt += `${body} ${btn} *Type:* ${type}\n`
+            txt += `${foot}${line}`
+
+        if (valid(res?.video) || valid(res?.image)) {
+          await xp.sendMessage(chat.id, valid(res?.video)
+            ? { video: { url: res.video }, caption: txt }
+            : { image: { url: res.image }, caption: txt }, { quoted: m })
+        } else {
+          return xp.sendMessage(chat.id, { text: 'media tidak ditemukan' }, { quoted: m })
+        }
+      } catch (e) {
+        err('error pada pindl', e)
         call(xp, e, m)
       }
     }

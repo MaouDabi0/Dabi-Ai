@@ -3,12 +3,44 @@ import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
 import { performance } from 'perf_hooks'
-import moment from 'moment-timezone'
-import { getGc, saveGc} from '../../system/db/data.js'
-import { groupCache } from '../../system/function.js'
 import os from 'os'
 
 export default function info(ev) {
+  ev.on({
+    name: 'afk',
+    cmd: ['afk'],
+    tags: 'Info Menu',
+    desc: 'menandai kamu afk',
+    owner: !1,
+    prefix: !0,
+    money: 1,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd
+    }) => {
+      try {
+        const user = Object.values(db().key).find(u => u.jid === chat.sender),
+              reason = args.join(' ') || 'tidak ada alasan',
+              time = global.time.timeIndo('Asia/Jakarta', 'DD-MM HH:mm:ss')
+
+        if (!user) return xp.sendMessage(chat.id, { text: 'kamu belum terdaftar, ulangi' }, { quoted: m })
+
+        user.afk.status = !0
+        user.afk.reason = reason
+        user.afk.afkStart = time 
+        save.db()
+
+        await xp.sendMessage(chat.id, { text: `Kamu memulai afk\ndengan alasan: ${reason}` }, { quoted: m })
+      } catch (e) {
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
+      }
+    }
+  })
+
   ev.on({
     name: 'cekcuaca',
     cmd: ['cekcuaca', 'cuaca'],
@@ -49,7 +81,7 @@ export default function info(ev) {
 
         await xp.sendMessage(chat.id, { text: txt }, { quoted: m })
       } catch (e) {
-        err('error pada cekcuaca', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -66,18 +98,20 @@ export default function info(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd,
+      prefix
     }) => {
       try {
         const gcData = getGc(chat),
               metadata = groupCache.get(chat.id),
               name = metadata.subject,
               member = metadata.participants.length,
-              { usrAdm, botAdm } = await grupify(xp, chat.id, chat.sender),
+              { usrAdm, botAdm } = await grupify(xp, m),
               defThumb = 'https://c.termai.cc/i0/7DbG.jpg'
 
         if (!chat.group || !gcData || !usrAdm || !botAdm) {
-          return xp.sendMessage(chat.id, { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : !gcData ? 'grup ini belum terdaftar' : !usrAdm ? 'kamu bukan admin' : 'aku bukan admin' }, { quoted: m })
+          return xp.sendMessage(chat.id, { text: !chat.group ? 'perintah ini hanya bisa digunakan digrup' : !gcData ? `grup ini belum terdaftar ketik ${prefix}daftargc untuk mendaftar` : !usrAdm ? 'kamu bukan admin' : 'aku bukan admin' }, { quoted: m })
         }
 
         let txt = `${head} ${opb} *Informasi Grup* ${clb}\n`
@@ -123,15 +157,15 @@ export default function info(ev) {
           return
         }
         gcData.member = metadata.participants.length
-        saveGc()
+        save.gc()
 
         if (oldName !== newName) {
           gc().key[newName] = gc().key[oldName]
           delete gc().key[oldName]
-          saveGc()
+          save.gc()
         }
       } catch (e) {
-        err('error pada cekgc', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -144,7 +178,7 @@ export default function info(ev) {
     desc: 'informasi fitur',
     owner: !1,
     prefix: !0,
-    money: 0,
+    money: 1,
     exp: 0.1,
 
     run: async (xp, m, {
@@ -214,7 +248,7 @@ export default function info(ev) {
           }
         }, { quoted: m })
       } catch (e) {
-        err('error pada help', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -227,18 +261,19 @@ export default function info(ev) {
     desc: 'main Menu',
     owner: !1,
     prefix: !0,
-    money: 0,
+    money: 1,
     exp: 0.1,
 
     run: async (xp, m, {
+      args,
       chat,
-      args
+      cmd
     }) => {
       try {
         const time = global.time.timeIndo('Asia/Jakarta', 'HH:mm'),
               filterTag = args[0]?.toLowerCase(),
               cmds = ev.cmd || [],
-              name = chat.pushName || m.pushName || m.key.participant,
+              name = chat.pushName,
               commands = {},
               allUsr = Object.keys(db().key).length
 
@@ -296,7 +331,8 @@ export default function info(ev) {
         }, { quoted: m })
 
       } catch (e) {
-        err('Error pada menu', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
       }
     }
   })
@@ -313,15 +349,14 @@ export default function info(ev) {
 
     run: async (xp, m, {
       chat,
+      cmd
     }) => {
       try {
         const owner = global.ownerName || 'error',
               bot = global.botName || 'error',
               ownerNumber = Array.isArray(global.ownerNumber) ? global.ownerNumber : [global.ownerNumber]
 
-        if (!ownerNumber || !ownerNumber.length) {
-          return xp.sendMessage(chat.id, { text: 'tidak ada kontak owner' }, { quoted: m })
-        }
+        if (!ownerNumber || !ownerNumber.length) return xp.sendMessage(chat.id, { text: 'tidak ada kontak owner' }, { quoted: m })
 
         const contact = ownerNumber.map((num, i) => ({ vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:${owner} ${i + 1}\nTEL;type=CELL;waid=${num}:${num}\nEND:VCARD` })),
               displayName = ownerNumber.length > 1 ? `${owner} dan ${ownerNumber.length - 1} lainnya` : owner
@@ -329,7 +364,8 @@ export default function info(ev) {
         await xp.sendMessage(chat.id, { contacts: { displayName, contacts: contact } }, { quoted: m })
         await xp.sendMessage(chat.id, { text: 'ini adalah kontak owner ku' }, { quoted: m })
       } catch (e) {
-        err('error pada owner', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
       }
     }
   })
@@ -341,25 +377,23 @@ export default function info(ev) {
     desc: 'mengecek profile orang',
     owner: !1,
     prefix: !0,
-    money: 0,
+    money: 1,
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd
     }) => {
       try {
-        const user = m.key?.participant || m.key?.participantAlt || m.key?.id,
-              data = Object.values(db().key).find(u => u.jid === user),
+        const data = Object.values(db().key).find(u => u.jid === chat.sender),
               base64 = v => Buffer.from(v).toString('base64'),
               defThumb = 'https://c.termai.cc/i0/7DbG.jpg',
               type = v => v ? 'Aktif' : 'Tidak'
 
-        if (!data) {
-          return xp.sendMessage(chat.id, { text: 'kamu belum terdaftar, ulangi' }, { quoted: m })
-        }
+        if (!data) return xp.sendMessage(chat.id, { text: 'kamu belum terdaftar, ulangi' }, { quoted: m })
 
         let thumb
-        try { thumb = await xp.profilePictureUrl(user, 'image') }
+        try { thumb = await xp.profilePictureUrl(chat.sender, 'image') }
         catch { thumb = defThumb }
 
         const name = chat.pushName || m.pushName,
@@ -368,8 +402,10 @@ export default function info(ev) {
               cmd = data.cmd,
               ban = type(data.ban),
               ai = type(data.ai?.bell),
+              farm = type(data?.game?.farm),
               chatAi = data.ai.chat,
               role = data.ai.role,
+              acc = data.acc,
               money = data.moneyDb?.money.toLocaleString('id-ID'),
               moneyInBank = data.moneyDb?.moneyInBank.toLocaleString('id-ID'),
               exp = data.exp || 0,
@@ -381,11 +417,13 @@ export default function info(ev) {
             txt += `${body} ${btn} *No ID:* ${noId}\n`
             txt += `${body} ${btn} *Cmd:* ${cmd}\n`
             txt += `${body} ${btn} *Ban:* ${ban}\n`
+            txt += `${body} ${btn} *Acc:* ${acc}\n`
             txt += `${foot}${line}\n\n`
             txt += `${head} ${opb} *G A M E* ${clb}\n`
             txt += `${body} ${btn} *Money:* Rp ${money}\n`
             txt += `${body} ${btn} *Uang Di Bank:* Rp ${moneyInBank}\n`
             txt += `${body} ${btn} *Level:* ${level}\n`
+            txt += `${body} ${btn} *Auto Farm:* ${farm}\n`
             txt += `${foot}${line}\n\n`
             txt += `${head} ${opb} *A I* ${clb}\n`
             txt += `${body} ${btn} *Ai:* ${ai}\n`
@@ -410,7 +448,7 @@ export default function info(ev) {
           }
         }, { quoted: m })
       } catch (e) {
-        err('error pada profile', e),
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -427,63 +465,69 @@ export default function info(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd
     }) => {
-      const a = performance.now(),
-            bytes = b => (b / 1024 / 1024).toFixed(2),
-            time = global.time.timeIndo("Asia/Jakarta", "HH:mm"),
-            cpu = os.cpus()?.[0]?.model ?? 'Tidak diketahui',
-            platform = os.platform(),
-            arch = os.arch(),
-            totalMem = os.totalmem(),
-            usedMem = totalMem - os.freemem()
-
-      let totalDisk = 'Tidak diketahui',
-          usedDisk = 'Tidak diketahui',
-          freeDisk = 'Tidak diketahui'
-
       try {
-        const d = execSync('df -h /', { encoding: 'utf8' })
-          .split('\n')[1]
-          .split(/\s+/)
-        ;[totalDisk, usedDisk, freeDisk] = [d[1], d[2], d[3]]
-      } catch (e) {
-        err('Disk info error:', e.message)
-      }
+        const a = performance.now(),
+              bytes = b => (b / 1024 / 1024).toFixed(2),
+              time = global.time.timeIndo("Asia/Jakarta", "HH:mm"),
+              cpu = os.cpus()?.[0]?.model ?? 'Tidak diketahui',
+              platform = os.platform(),
+              arch = os.arch(),
+              totalMem = os.totalmem(),
+              usedMem = totalMem - os.freemem()
 
-      const stats = `Ini adalah status dari ${botName}
+        let totalDisk = 'Tidak diketahui',
+            usedDisk = 'Tidak diketahui',
+            freeDisk = 'Tidak diketahui'
 
-  ${head} ${opb} Stats *${botName}* ${clb}
-  ${body} ${btn} *Bot Name:* ${botName}
-  ${body} ${btn} *Bot Full Name:* ${botFullName}
-  ${body} ${btn} *Time:* ${time}
-  ${body} ${btn} *Respon:* ${(performance.now() - a).toFixed(2)} ms
-  ${foot}${line}
-
-  ${head} ${opb} Stats System ${clb}
-  ${body} ${btn} *Platform:* ${platform} ( ${arch} )
-  ${body} ${btn} *Cpu:* ${cpu}
-  ${body} ${btn} *Ram:* ${bytes(usedMem)} MB / ${bytes(totalMem)} MB
-  ${body} ${btn} *Storage:* ${usedDisk} / ${totalDisk} ( ${freeDisk} )
-  ${foot}${line}`.trim()
-
-      await xp.sendMessage(chat.id, {
-        text: stats,
-        contextInfo: {
-          externalAdReply: {
-            title: botFullName,
-            body: `Ini adalah stats ${botName}`,
-            thumbnailUrl: thumbnail,
-            mediaType: 1,
-            renderLargerThumbnail: !0
-          },
-          forwardingScore: 1,
-          isForwarded: !0,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: idCh
-          }
+        try {
+          const d = execSync('df -h /', { encoding: 'utf8' })
+            .split('\n')[1]
+            .split(/\s+/)
+          ;[totalDisk, usedDisk, freeDisk] = [d[1], d[2], d[3]]
+        } catch (e) {
+          err('Disk info error:', e.message)
         }
-      }, { quoted: m })
+
+        const stats = `Ini adalah status dari ${botName}
+
+    ${head} ${opb} Stats *${botName}* ${clb}
+    ${body} ${btn} *Bot Name:* ${botName}
+    ${body} ${btn} *Bot Full Name:* ${botFullName}
+    ${body} ${btn} *Time:* ${time}
+    ${body} ${btn} *Respon:* ${(performance.now() - a).toFixed(2)} ms
+    ${foot}${line}
+
+    ${head} ${opb} Stats System ${clb}
+    ${body} ${btn} *Platform:* ${platform} ( ${arch} )
+    ${body} ${btn} *Cpu:* ${cpu}
+    ${body} ${btn} *Ram:* ${bytes(usedMem)} MB / ${bytes(totalMem)} MB
+    ${body} ${btn} *Storage:* ${usedDisk} / ${totalDisk} ( ${freeDisk} )
+    ${foot}${line}`.trim()
+
+        await xp.sendMessage(chat.id, {
+          text: stats,
+          contextInfo: {
+            externalAdReply: {
+              title: botFullName,
+              body: `Ini adalah stats ${botName}`,
+              thumbnailUrl: thumbnail,
+              mediaType: 1,
+              renderLargerThumbnail: !0
+            },
+            forwardingScore: 1,
+            isForwarded: !0,
+            forwardedNewsletterMessageInfo: {
+              newsletterJid: idCh
+            }
+          }
+        }, { quoted: m })
+      } catch (e) {
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
+      }
     }
   })
 }

@@ -4,6 +4,44 @@ const bankData = path.join(dirname, './db/bank.json')
 
 export default function game(ev) {
   ev.on({
+    name: 'autofarming',
+    cmd: ['farm', 'autofarm', 'autofarming'],
+    tags: 'Game Menu',
+    desc: 'mengaktifkan auto farming',
+    owner: !1,
+    prefix: !0,
+    money: 0,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const input = args[0]?.toLowerCase(),
+              user = Object.values(db().key).find(u => u.jid === chat.sender),
+              opsi = !!user?.game?.farm,
+              type = v => v ? 'Aktif' : 'Tidak',
+              modefarm = type(user?.game?.farm)
+
+        if (!input || !['on', 'off'].includes(input) || (input === 'on' && opsi) || (input === 'off' && !opsi)) {
+          return xp.sendMessage(chat.id, { text: !input || !['on', 'off'].includes(input) ? `gunakan:\n ${prefix}${cmd} on/off\n\n${cmd}: ${modefarm}` : `${cmd} sudah ${opsi ? 'Aktif' : 'nonaktif'}` }, { quoted: m })
+        }
+
+        user.game.farm = input === 'on'
+        save.db()
+
+        await xp.sendMessage(chat.id, { text: `${cmd} berhasil di-${input === 'on' ? 'aktifkan' : 'nonaktifkan'}` }, { quoted: m })
+      } catch (e) {
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
     name: 'cekbank',
     cmd: ['cekbank'],
     tags: 'Game Menu',
@@ -41,7 +79,7 @@ export default function game(ev) {
     desc: 'mengisi saldo bank orang',
     owner: !1,
     prefix: !0,
-    money: 0,
+    money: 1,
     exp: 0.1,
 
     run: async (xp, m, {
@@ -66,7 +104,7 @@ export default function game(ev) {
 
         userDb.moneyDb.money -= nominal
         userDb.moneyDb.moneyInBank += nominal
-        saveDb()
+        save.db()
 
         await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil masukan ke bank` }, { quoted: m })
       } catch (e) {
@@ -126,7 +164,7 @@ export default function game(ev) {
 
         targetdb.moneyDb.money -= finalSt
         usrdb.moneyDb.money += finalSt
-        saveDb()
+        save.db()
 
         let txt = `${head}\n`
             txt += `${body} ${btn} *Berhasil Merampok:* Rp ${finalSt.toLocaleString('id-ID')} dari @${mention}\n`
@@ -209,7 +247,7 @@ export default function game(ev) {
              ${menang ? `🎉 Kamu Menang! +${rsMoney.toLocaleString('id-ID')}` : `💥 Zonk! -${Math.abs(rsMoney).toLocaleString('id-ID')}`}
 `.trim();
 
-        saveDb()
+        save.db()
         saveBank(saldoBank)
 
         const pesanAwal = await xp.sendMessage(chat.id, { text: '🎲 Gacha dimulai...' }, { quoted: m });
@@ -252,7 +290,7 @@ export default function game(ev) {
 
         usrdb.moneyDb.moneyInBank -= nominal
         usrdb.moneyDb.money += nominal
-        saveDb()
+        save.db()
 
         await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil di tarik dari bank` }, { quoted: m })
       } catch (e) {
@@ -302,7 +340,7 @@ export default function game(ev) {
 
         userDb.moneyDb.money -= nominal
         targetDb.moneyDb.money += nominal
-        saveDb()
+        save.db()
 
         let txt = `Rp ${nominal.toLocaleString('id-ID')} berhasil ditransfer`
 

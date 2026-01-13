@@ -1,10 +1,12 @@
 import axios from 'axios'
 import fetch from 'node-fetch'
+import fs from 'fs'
+import path from 'path'
 import { downloadMediaMessage } from 'baileys'
 
 export default function ai(ev) {
   ev.on({
-    name: 'bell',
+    name: 'autoai',
     cmd: ['ai', 'bell'],
     tags: 'Ai Menu',
     desc: 'Fitur open ai',
@@ -20,56 +22,26 @@ export default function ai(ev) {
       prefix
     }) => {
       try {
-        const { id, group, sender } = chat,
-              val = args[0]?.toLowerCase();
+        const val = args[0]?.toLowerCase();
 
         if (!['on', 'off'].includes(val)) 
-          return xp.sendMessage(id, { text: `Gunakan perintah ${prefix}${cmd} on/off` }, { quoted: m });
+          return xp.sendMessage(chat.id, { text: `Gunakan perintah ${prefix}${cmd} on/off` }, { quoted: m });
 
         const value = val === 'on',
-              key = Object.keys(db().key).find(k => db().key[k].jid === (group ? sender : id));
+              userdb = Object.values(db().key).find(u => u.jid === chat.sender),
+              opsi = !!userdb?.ai?.bell
 
-        if (!key) return;
+        if ((value && opsi) || (!value && !opsi)) {
+          return xp.sendMessage(chat.id, { text: `${cmd} sudah ${value ? 'aktif' : 'nonaktif'}`
+          }, { quoted: m })
+        }
 
-        db().key[key].ai.bell = value;
-        saveDb();
+        userdb.ai.bell = value
+        save.db()
 
-        xp.sendMessage(id, { text: `ai telah ${value ? 'diaktifkan' : 'dinonaktifkan'}.` }, { quoted: m });
+        xp.sendMessage(chat.id, { text: `${cmd} telah ${value ? 'diaktifkan' : 'dinonaktifkan'}.` }, { quoted: m })
       } catch (e) {
-        err('error pada bell', e)
-        call(xp, e, m)
-      }
-    }
-  })
-
-  ev.on({
-    name: 'resetbell',
-    cmd: ['resetbell', 'reset'],
-    tags: 'Ai Menu',
-    desc: 'Reset sesi AI Bell',
-    owner: !1,
-    prefix: !0,
-    money: 500,
-    exp: 0.1,
-
-    run: async (xp, m, {
-      args,
-      chat
-    }) => {
-      try {
-        const target = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0]
-          || m.message?.extendedTextMessage?.contextInfo?.participant
-          || chat.sender
-
-        if (!target) 
-          return await xp.sendMessage(chat.id, { text: 'Target tidak ditemukan.' }, { quoted: m })
-
-        const res  = await fetch(`${termaiWeb}/api/chat/logic-bell/reset?id=${target}&key=${termaiKey}`),
-              json = await res.json()
-
-        await xp.sendMessage(chat.id, { text: json.m || json.msg || 'Terjadi error saat reset sesi Bell.' }, { quoted: m })
-      } catch (e) {
-        err('error pada resetbell', e)
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }
@@ -86,7 +58,8 @@ export default function ai(ev) {
     exp: 0.1,
 
     run: async (xp, m, {
-      chat
+      chat,
+      cmd
     }) => {
       try {
         const res = await fetch(`${termaiWeb}/api/tools/key-checker?key=${termaiKey}`),
@@ -129,7 +102,8 @@ export default function ai(ev) {
 
         xp.sendMessage(chat.id, { text: txt.trim() }, { quoted: m })
       } catch (e) {
-        err('error pada cekkey', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
       }
     }
   })
@@ -187,7 +161,8 @@ export default function ai(ev) {
 
         await xp.sendMessage(chat.id, { image: imgBuffer, caption: `hasil dengan prompt: ${prompt}` }, { quoted: m })
       } catch (e) {
-        err('error pada img2img', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
       }
     }
   })
@@ -274,7 +249,77 @@ export default function ai(ev) {
           call(xp, e, m)
         })
       } catch (e) {
-        err('error pada img2video', e)
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'resetbell',
+    cmd: ['resetbell', 'reset'],
+    tags: 'Ai Menu',
+    desc: 'Reset sesi AI Bell',
+    owner: !1,
+    prefix: !0,
+    money: 500,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd
+    }) => {
+      try {
+        const target = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0]
+          || m.message?.extendedTextMessage?.contextInfo?.participant
+          || chat.sender
+
+        if (!target) 
+          return await xp.sendMessage(chat.id, { text: 'Target tidak ditemukan.' }, { quoted: m })
+
+        const res  = await fetch(`${termaiWeb}/api/chat/logic-bell/reset?id=${target}&key=${termaiKey}`),
+              json = await res.json()
+
+        await xp.sendMessage(chat.id, { text: json.m || json.msg || 'Terjadi error saat reset sesi Bell.' }, { quoted: m })
+      } catch (e) {
+        err(`error pada ${cmd}`, e)
+        call(xp, e, m)
+      }
+    }
+  })
+
+  ev.on({
+    name: 'setlogic',
+    cmd: ['setlogic'],
+    tags: 'Ai Menu',
+    desc: 'setting logika ai',
+    owner: !0,
+    prefix: !0,
+    money: 0,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      args,
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const ctx = m.message?.extendedTextMessage?.contextInfo,
+              q = ctx?.quotedMessage?.conversation,
+              cfg = JSON.parse(fs.readFileSync('./system/set/config.json', 'utf-8')),
+              newLogic = q || args.join(' ')
+
+        if (!newLogic) return xp.sendMessage(chat.id, { text: `contoh:\n${prefix}${cmd} teks logika\n\nlogika saat ini:\n${cfg?.botSetting?.logic || 'belum di setting'}` }, { quoted: m })
+
+        cfg.botSetting.logic = newLogic
+        fs.writeFileSync('./system/set/config.json', JSON.stringify(cfg, null, 2))
+        global.logic = newLogic
+
+        await xp.sendMessage(chat.id, { text: `logic ai berhasil diubah ke:\n${newLogic}` }, { quoted: m })
+      } catch (e) {
+        err(`error pada ${cmd}`, e)
         call(xp, e, m)
       }
     }

@@ -209,9 +209,8 @@ export default function maker(ev) {
     }) => {
       try {
         const q = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
-              media = q || m.message,
-              img = q?.imageMessage || q?.stickerMessage,
-              txt = args.join(' ')
+              img = m.message?.conversation || m.message?.imageMessage?.caption || q?.imageMessage || q?.stickerMessage,
+              txt = args?.join(' ')
 
         if (!img || !txt?.includes('|'))
           return xp.sendMessage(chat.id, { text: !img ? `reply gambar/stiker\ncontoh: ${prefix + cmd} atas | bawah` : `format salah\ncontoh: ${prefix + cmd} atas | bawah` }, { quoted: m })
@@ -240,7 +239,7 @@ export default function maker(ev) {
                 )
 
         const [atas, bawah] = txt.split('|').map(v => v.trim() || '_'),
-              buf = await downloadMediaMessage({ message: media }, 'buffer')
+              buf = await downloadMediaMessage({ message: q || m.message }, 'buffer')
 
         if (!buf) throw Error('gagal mendownload media')
 
@@ -315,20 +314,7 @@ export default function maker(ev) {
               time = global.time.timeIndo("Asia/Jakarta", "HH:mm")
 
         if (!stiker || stiker.isAnimated || !fs.existsSync(temp)) {
-          return xp.sendMessage(
-            chat.id,
-            {
-              text:
-                !stiker
-                  ? 'reply/kirim stiker yang ingin dikonversi'
-                  : stiker.isAnimated
-                    ? 'stiker animasi tidak bisa dikonversi'
-                    : !fs.existsSync(temp)
-                      ? 'folder temp belum ada'
-                    : ''
-            },
-            { quoted: m }
-          )
+          return xp.sendMessage(chat.id, { text: !stiker ? 'reply/kirim stiker yang ingin dikonversi' : stiker.isAnimated ? 'stiker animasi tidak bisa dikonversi' : 'folder temp belum ada' }, { quoted: m })
         }
 
         const timeDir = `${time}`,
