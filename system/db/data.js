@@ -6,48 +6,90 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const database = path.join(dirname, 'database.json'),
-      dataGc = path.join(dirname, 'dataGc.json')
+      dataGc = path.join(dirname, 'datagc.json'),
+      datagame = path.join(dirname, 'datagame.json'),
+      bankdb = path.join(dirname, 'bank.json')
 
-let init = (() => {
-  const load = file => {
-    if (!fs.existsSync(file)) return fs.writeFileSync(file, JSON.stringify({ key: {} }, null, 2)), { key: {} }
+let saving = Promise.resolve(),
+    init = (() => {
+  const load = (file, def = { key: {} }) => {
+    if (!fs.existsSync(file))
+      return fs.writeFileSync(file, JSON.stringify(def, null, 2)), def
 
     try {
       const data = JSON.parse(fs.readFileSync(file))
-      return data ? data : (fs.writeFileSync(file, JSON.stringify({ key: {} }, null, 2)), { key: {} })
+      return data ? data : (fs.writeFileSync(file, JSON.stringify(def, null, 2)), def)
     } catch (e) {
-      err(`${path.basename(file)} rusak`, e),
-      fs.writeFileSync(file, JSON.stringify({ key: {} }, null, 2))
-      return { key: {} }
+      console.error(`${path.basename(file)} rusak`, e)
+      fs.writeFileSync(file, JSON.stringify(def, null, 2))
+      return def
     }
   }
 
+  const inBank = () => load(bankdb, { key: { saldo: 0, tax: '12%' } }),
+        gm = () => load(datagame, { key: { farm: {} } })
+
   return {
     db: load(database),
-    gc: load(dataGc)
+    gc: load(dataGc),
+    gm: gm(),
+    bnk: inBank()
   }
 })()
 
 const db = () => init.db,
-      gc = () => init.gc
+      gc = () => init.gc,
+      gm = () => init.gm,
+      bnk = () => init.bnk
 
 const getUsr = jid => Object.values(db().key).find(u => u.jid === jid)
 
 const getGc = chat => gc()?.key && Object.values(gc().key).find(g => String(g?.id) === String(chat.id)) || null
 
-const saveDb = async () => {
-  try {
-    await fs.promises.writeFile(database, JSON.stringify(init.db, null, 2))
-  } catch (e) {
-    err('error pada saveDb: ', e)
-  }
-}
+const save = {
+  db() {
+    saving = saving.then(async () => {
+      try {
+        await fs.promises.writeFile(
+          database,
+          JSON.stringify(init.db, null, 2)
+        )
+      } catch (e) {
+        console.error('error pada save.db', e)
+        erl(e, 'save.db')
+      }
+    })
+    return saving
+  },
 
-const saveGc = () => {
-  try {
-    fs.writeFileSync(dataGc, JSON.stringify(init.gc, null, 2))
-  } catch (e) {
-    err('error pada saveGc', e)
+  gm() {
+    saving = saving.then(async () => {
+      try {
+        await fs.promises.writeFile(
+          datagame,
+          JSON.stringify(init.gm, null, 2)
+        )
+      } catch (e) {
+        console.error('error pada save.gm', e)
+        erl(e, 'save.gm')
+      }
+    })
+    return saving
+  },
+
+  gc() {
+    saving = saving.then(async () => {
+      try {
+        await fs.promises.writeFile(
+          dataGc,
+          JSON.stringify(init.gc, null, 2)
+        )
+      } catch (e) {
+        console.log('error pada save.gc', e)
+        erl(e, 'save.gc')
+      }
+    })
+    return saving
   }
 }
 
@@ -85,9 +127,10 @@ const role = jid => {
 }
 
 const randomId = m => {
-  const letters = 'abcdefghijklmnopqrstuvwxyz',
+  const chat = global.chat(m),
+        letters = 'abcdefghijklmnopqrstuvwxyz',
         pick = s => Array.from({ length: 5 }, () => s[Math.floor(Math.random() * s.length)]),
-        jid = (m?.key?.participantAlt || '').replace('@s.whatsapp.net', ''),
+        jid = chat.sender?.replace(/@s\.whatsapp\.net$/, ''),
         base = [...pick(letters), ...jid.slice(-4)]
 
   for (let i = base.length - 1; i > 0; i--) {
@@ -98,27 +141,27 @@ const randomId = m => {
   return base.join('')
 }
 
-const authUser = async (m, chat) => {
+const authUser = async (m) => {
   try {
-    const sender = (m.key.participant || m.key.remoteJid),
-          pushName = (m.pushName || '-').trim().slice(0, 20),
+    const chat = global.chat(m),
           group = !!chat?.group,
-          pJid = m?.key?.participantAlt || null,
-          e = o => Object.values(o || {}).some(u => u.jid === sender)
+          e = o => Object.values(o || {}).some(u => u.jid === chat.sender),
+          time = global.time.timeIndo("Asia/Jakarta", "DD-MM-YYYY")
 
     if (
-      !sender.endsWith('@s.whatsapp.net') ||
+      !chat.sender?.endsWith('@s.whatsapp.net') ||
       e(db().key) ||
-      (group && pJid && sender !== pJid)
+      (group && chat.sender && chat.sender !== chat.sender)
     ) return
 
-    const nama = pushName
+    const nama = chat.pushName?.trim().slice(0, 20)
     let k = nama, i = 1
     while (db().key[k]) k = `${nama}_${i++}`
 
     db().key[k] = {
-      jid: sender,
+      jid: chat.sender,
       noId: randomId(m),
+      acc: time,
       ban: !1,
       cmd: 0,
       exp: 0,
@@ -130,11 +173,55 @@ const authUser = async (m, chat) => {
         bell: !1,
         chat: 0,
         role: listRole[0]
+      },
+      afk: {
+        status: !1,
+        reason: '',
+        afkStart: ''
+      },
+      game: {
+        farm: !1
       }
     }
+
+    save.db()
   } catch (e) {
-    err('error pada authUser', e)
-    call(xp, e, m)
+    console.error('error pada authUser', e)
+  }
+}
+
+const authFarm = async m => {
+  try {
+    const chat = global.chat(m),
+          userDb = getUsr(chat.sender),
+          gameDb = Object.values(gm().key.farm).find(u => u.jid === chat.sender),
+          group = !!chat?.group,
+          time = global.time.timeIndo("Asia/Jakarta", "DD-MM-YYYY HH:mm:ss"),
+          nama = chat.pushName?.trim().slice(0, 20),
+          costMny =
+            (userDb?.moneyDb?.money ?? 0) +
+            (userDb?.moneyDb?.moneyInBank ?? 0)
+
+    if (
+      !chat.sender?.endsWith('@s.whatsapp.net') ||
+      gameDb
+    ) return
+
+    let k = nama, i = 1
+    while (gm().key.farm[k]) k = `${nama}_${i++}`
+
+    gm().key.farm[k] = {
+      jid: chat.sender,
+      set: time,
+      exp: userDb?.exp || 0,
+      moneyDb: {
+        money: costMny
+      }
+    }
+
+    save.gm()
+  } catch (e) {
+    console.log('error pada authFarm', e)
   }
 }
 
@@ -142,9 +229,11 @@ export {
   init,
   db,
   gc,
+  gm,
+  bnk,
+  authFarm,
   getGc,
-  saveDb,
-  saveGc,
+  save,
   role,
   randomId,
   authUser
