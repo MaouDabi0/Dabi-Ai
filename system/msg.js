@@ -1,41 +1,65 @@
 function getMessageContent(m) {
   let text = '',
-      media = ''
-  if (!m?.message) return { text, media }
+      media = '',
+      no = ''
 
-  const c = m.message,
-        vo = c.viewOnceMessage?.message
+  const chat = global.chat(m),
+        key = m.key,
+        msg = m.message,
+        vo = key?.isViewOnce,
+        stubType = m?.messageStubType,
+        prm = msg?.protocolMessage,
+        paramType = m.messageStubParameters
 
-  if (vo) {
-    text = vo.conversation || vo.extendedTextMessage?.text || vo.imageMessage?.caption || vo.videoMessage?.caption
-    media = 'Sekali Lihat'
+  if (paramType?.[0]) {
+    const data = (() => { try { return JSON.parse(paramType[0]) } catch { return {} } })();
+    no = (data.phoneNumber || data.pn || chat.pushName)?.replace(/@.+$/, '');
   }
 
-  if (m.key?.remoteJid === 'status@broadcast') media = 'Status'
-  if (c.groupStatusMentionMessage) {
-    media = 'Status Grup'
-    text = 'Grup ini disebut dalam status'
-  }
-
-  if (!text) {
-    const pm = c.protocolMessage
-    text = c.conversation 
-         || c.extendedTextMessage?.text
-         || c.imageMessage?.caption
-         || c.videoMessage?.caption
-         || (c.reactionMessage ? `Memberi reaksi ${c.reactionMessage.text}` : '')
-         || (pm?.type === 14 
-             ? (pm.editedMessage?.conversation || pm.editedMessage?.extendedTextMessage?.text 
-                 ? `Diedit ${pm.editedMessage.conversation || pm.editedMessage.extendedTextMessage?.text}` 
-                 : 'Diedit') 
-             : '')
-         || (pm?.type === 5 ? 'Sinkronisasi' : '')
-         || (pm?.type === 6 ? 'Sinkronisasi Kunci Aplikasi' : '')
-         || (pm?.type === 9 ? 'Sinkronisasi Keamanan' : '')
-         || (pm?.type === 0 ? 'Pesan Dihapus' : '')
-         || c.ephemeralMessage?.message?.conversation
-         || c.ephemeralMessage?.message?.extendedTextMessage?.text
-  }
+  text =
+    msg?.conversation
+    || msg?.extendedTextMessage?.text
+    || msg?.imageMessage?.caption
+    || msg?.videoMessage?.caption
+    || msg?.documentMessage?.caption
+    || (m.call && 'Panggilan telepon')
+    || (msg?.reactionMessage &&
+        `Bereaksi ${msg.reactionMessage.text} ke ${msg.reactionMessage.key?.participant?.replace(/@s\.whatsapp\.net$/, '')}`)
+    || (key?.remoteJid === 'status@broadcast' && 'Status')
+    || (msg?.groupStatusMentionMessage && 'Grup ini disebut')
+    || (prm?.type === 14 &&
+        `Diedit ${prm?.editedMessage?.conversation || prm?.editedMessage?.extendedTextMessage?.text || ''}`.trim())
+    || ({
+        0: 'Pesan dihapus',
+        3: 'Mengatur timer grup',
+        5: 'Sinkronisasi',
+        6: 'Sinkronisasi kunci aplikasi',
+        9: 'Sinkronisasi kunci keamanan'
+      })[prm?.type]
+    || ({
+        1: `${chat.sender.replace(/@s\.whatsapp\.net$/, '')} Menyimpan pesan`,
+        2: `${chat.sender.replace(/@s\.whatsapp\.net$/, '')} Menghapus pesan tersimpan`
+      })[msg?.keepInChatMessage?.keepType]
+    || ({
+        2: 'Sekali lihat',
+        20: 'Grup dibuat',
+        22: 'Mengubah foto grup',
+        24: `Mengedit info grup`,
+        25: 'Mengedit peraturan anggota grup',
+        26: 'Mengedit chat grup',
+        27: 'Bergabung ke grup',
+        29: `Menjadikan ${no} admin`,
+        30: `Menurunkan admin ${no}`,
+        32: 'Keluar dari grup',
+        145: 'Mengedit persetujuan admin',
+        171: 'Mengedit peraturan tambahkan anggota',
+        172: 'Meminta bergabung'
+      })[stubType]
+    || ({
+        1: 'Menyematkan pesan',
+        2: 'Melepaskan pin pesan'
+      })[msg?.pinInChatMessage?.type]
+    || (vo && 'Sekali lihat')
 
   const mt = {
     imageMessage: 'Gambar',
@@ -43,23 +67,21 @@ function getMessageContent(m) {
     audioMessage: 'Audio',
     documentMessage: 'Dokumen',
     stickerMessage: 'Stiker',
-    locationMessage: 'Lokasi',
-    contactMessage: 'Kontak',
-    pollCreationMessage: 'Polling',
-    liveLocationMessage: 'Lokasi Live',
+    contactMessage: `Kontak ${msg?.contactMessage?.displayName}`,
     reactionMessage: 'Reaksi',
+    vo: 'Sekali lihat',
     protocolMessage: 'Sistem',
-    ephemeralMessage: 'Sekali Lihat',
-    viewOnceMessage: 'Sekali Lihat'
+    locationMessage: 'Lokasi',
+    pollCreationMessage: 'Polling',
+    pollCreationMessageV3: 'Polling',
+    pollUpdateMessage: 'Memilih polling',
+    eventMessage: `Acara ${msg?.eventMessage?.name}`,
+    liveLocationMessage: 'Lokasi Live'
   }
 
-  for (const [k, v] of Object.entries(mt)) {
-    if (c[k]) media = v
-    if (k === 'ephemeralMessage' && c.ephemeralMessage?.message) {
-      const nk = Object.keys(c.ephemeralMessage.message)[0]
-      if (nk && mt[nk]) media = mt[nk]
-    }
-  }
+  const mediaKey = Object.keys(msg || {}).find(k => mt[k])
+  media = mediaKey ? mt[mediaKey] : ''
+  media = text && media && text.toLowerCase() === media.toLowerCase() ? '' : media
 
   return { text, media }
 }

@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import moment from 'moment-timezone'
 
 const number = (input) => {
   const digits = input.replace(/\D/g, '')
@@ -7,7 +8,8 @@ const number = (input) => {
 }
 
 const own = (m) => {
-  const sender = (m.key?.participantAlt || m.key?.participant || m.key?.remoteJid).replace(/@s\.whatsapp\.net$/, ''),
+  const chat = global.chat(m),
+        sender = chat.sender.replace(/@s\.whatsapp\.net$/, ''),
         number = Array.isArray(ownerNumber)
           ? ownerNumber.map(n => n.replace(/\D/g, ''))
           : [ownerNumber?.replace(/\D/g, '')]
@@ -39,8 +41,40 @@ const makeInMemoryStore = () => {
   return { msg, bind, loadMsg }
 }
 
+const errDir = path.resolve('../temp'),
+      errFile = path.join(errDir, 'error.json'),
+      time = moment().tz("Asia/Jakarta").format("DD-MM-YYYY HH:mm:ss"),
+      read = f => {
+        try {
+          const d = JSON.parse(fs.readFileSync(f))
+          return Array.isArray(d) ? d : []
+        } catch {
+          return []
+        }
+      }
+
+const erl = async (err, from = 'unknown') => {
+  try {
+    fs.existsSync(errDir) ? !0 : fs.mkdirSync(errDir, { recursive: !0 })
+
+    const logs = fs.existsSync(errFile) ? read(errFile) : [],
+          data = {
+            time: time,
+            from,
+            name: err?.name || 'Error',
+            message: err?.message || String(err),
+            stack: err?.stack || null
+          }
+
+    logs.push(data)
+
+    await fs.promises.writeFile(errFile, JSON.stringify(logs, null, 2))
+  } catch {}
+}
+
 export {
   number,
   own,
+  erl,
   makeInMemoryStore
 }
