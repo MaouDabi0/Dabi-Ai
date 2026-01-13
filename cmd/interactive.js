@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import c from 'chalk'
 import { generateWAMessageContent, getContentType } from 'baileys'
 import { convertToOpus, generateWaveform } from '../system/ffmpeg.js'
 import { role } from '../system/db/data.js'
@@ -9,9 +10,10 @@ const fetchData = async (url, type = 'json', options = {}) => {
   return type === 'buffer' ? Buffer.from(await res.arrayBuffer()) : res.json()
 }
 
-async function vn(xp, id, audioBuffer, m = null) {
+async function vn(xp, audio, m) {
   try {
-    const buff = await convertToOpus(audioBuffer),
+    const chat = global.chat(m),
+          buff = await convertToOpus(audio),
           config = { audio: buff, mimetype: 'audio/ogg; codecs=opus', ptt: !0 },
           messageContent = await generateWAMessageContent(config, { upload: xp.waUploadToServer }),
           type = getContentType(messageContent)
@@ -23,21 +25,21 @@ async function vn(xp, id, audioBuffer, m = null) {
     }
 
     messageContent[type].waveform = await generateWaveform(buff)
-    return await xp.relayMessage(id, messageContent, {})
+    return await xp.relayMessage(chat.id, messageContent, {})
   } catch (e) {
     err('error pasa vn', e)
     throw e
   }
 }
 
-async function bell(body, text, m, sender, xp, id, voice = "dabi", pitch = 0, speed = 0.9) {
-  const name = m?.pushName || m?.key?.participantAlt?.split('@')[0] || 'tidak diketahui',
-        chat = global.chat(m),
+async function bell(txt, m, xp, voice = "dabi", pitch = 0, speed = 0.9) {
+  const chat = global.chat(m),
+        name = m?.pushName || chat.sender || 'tidak diketahui',
         usr = Object.values(db().key).find(u => u.jid === chat.sender),
-        role = usr.ai?.role || 'gak kenal',
+        role = usr?.ai?.role || 'gak kenal',
         data = {
-          text,
-          id: sender,
+          text: txt,
+          id: chat.sender,
           fullainame: botFullName,
           nickainame: botName,
           senderName: name,
@@ -129,12 +131,12 @@ async function bell(body, text, m, sender, xp, id, voice = "dabi", pitch = 0, sp
     if (!status) return { error: !0, message: 'API gagal merespon' }
 
     if (resData?.cmd === 'voice') {
-      const audioBuffer = await fetchData(
+      const audio = await fetchData(
         `${termaiWeb}/api/text2speech/elevenlabs?text=${encodeURIComponent(resData.msg)}&voice=${voice}&pitch=${pitch}&speed=${speed}&key=${termaiKey}`,
         'buffer'
       )
-      return audioBuffer
-        ? (await vn(xp, id, audioBuffer, m), { cmd: 'voice' })
+      return audio
+        ? (await vn(xp, audio, m), { cmd: 'voice' })
         : { error: !0, message: 'Gagal membuat voice' }
     }
 
@@ -144,40 +146,31 @@ async function bell(body, text, m, sender, xp, id, voice = "dabi", pitch = 0, sp
   }
 }
 
-const signal = async (text, m, user, id, xp, ev) => {
+const signal = async (text, m, xp, ev) => {
   const idBot = xp.user?.id?.split(':')[0] + '@s.whatsapp.net',
         chat = global.chat(m),
         botName = global.botName?.toLowerCase(),
-        botNumb = idBot.split('@')[0],
-        msg = m.message || {},
-        ctx = msg.extendedTextMessage?.contextInfo || msg.imageMessage?.contextInfo || {},
-        caption = msg.imageMessage?.caption 
-               || msg.videoMessage?.caption 
-               || text 
-               || '',
-        { mentionedJid = [], participant = '' } = ctx,
-        sender = m.key?.participant ?? m.participant ?? user,
-        senderBase = sender?.split(':')[0] ?? sender,
-        lowerText = caption.toLowerCase(),
+        ctx = m.message?.extendedTextMessage?.contextInfo || m.message?.imageMessage?.contextInfo || {},
+        txt = text?.toLowerCase(),
         call =
-          mentionedJid.includes(idBot) ||
-          participant === idBot ||
-          ctx.participant === idBot ||
-          (!!botName && lowerText.includes(botName)),
-        prefix = [].concat(global.prefix).some(p => lowerText.startsWith(p))
+          ctx?.mentionedJid?.includes(idBot) ||
+          chat.sender === idBot ||
+          ctx?.participant === idBot ||
+          (!!botName && txt.includes(botName)),
+        prefix = [].concat(global.prefix).some(p => txt.startsWith(p))
 
-  if (!call || prefix || senderBase === botNumb) return
+  if (!call || prefix || chat.sender?.split(':')[0] === idBot?.split('@')[0]) return
 
-  const keyData = Object.values(db().key).find(u => u.jid === sender),
+  const keyData = Object.values(db().key).find(u => u.jid === chat.sender),
         exp = Math.round(0.1 * 10)
   if (!keyData?.ai?.bell) return
 
   keyData.ai.chat = ++keyData.ai.chat || 1
   keyData.exp = (keyData.exp || 0) + exp
   role(m)
-  saveDb()
+  save.db()
 
-  const _ai = await bell(caption, caption, m, sender, xp, id)
+  const _ai = await bell(txt, m, xp)
   if (!_ai || !ev) return
   log(_ai)
 

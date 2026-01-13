@@ -2,9 +2,10 @@ import c from "chalk"
 import fs from "fs"
 import p from "path"
 import EventEmitter from "events"
+import getMessageContent from '../system/msg.js'
 import { authUser, role } from '../system/db/data.js'
 import { own } from '../system/helper.js'
-import { cekSpam } from '../system/function.js'
+import { cekSpam, _tax } from '../system/function.js'
 
 const dir = p.join(dirname, "../cmd/command"),
       cache = {}
@@ -89,7 +90,7 @@ const watch = () => {
 
 const handleCmd = async (m, xp, store) => {
   try {
-    const { text } = global.getMessageContent(m) || {}
+    const { text } = getMessageContent(m)
     if (!text) return
 
     const bankDb = JSON.parse(fs.readFileSync(p.join(dirname, './db/bank.json'), 'utf-8')),
@@ -101,7 +102,7 @@ const handleCmd = async (m, xp, store) => {
     if (!lowCmd) return
 
     const chat = global.chat(m),
-          sender = (m.key.participant || m.key.remoteJid).replace(/@s\.whatsapp\.net$/, ''),
+          sender = chat.sender?.replace(/@s\.whatsapp\.net$/, ''),
           userDb = Object.values(db().key).find(u => u.jid === chat.sender),
           ownerNum = [].concat(global.ownerNumber).map(n => n?.replace(/[^0-9]/g, '')),
           eventData = ev.cmd?.find(e =>
@@ -111,16 +112,15 @@ const handleCmd = async (m, xp, store) => {
 
     if (!eventData || ((eventData.prefix ?? !0) ? !pre : pre)) return
 
-    await authUser(m, chat)
+    await authUser(m)
 
-    if ((!global.public || eventData.owner) && !ownerNum.includes(sender)) return
-    if (await cekSpam(xp, m)) return
+    if (!userDb ? (xp.sendMessage(chat.id, { text: 'ulangi' }, { quoted: m }), true) : ((!global.public || eventData.owner) && !ownerNum.includes(sender)) ? true : await cekSpam(xp, m)) return
 
-    const cost = eventData.money || 0,
-          exp = eventData.exp ?? 0.1,
+    const exp = eventData.exp ?? 0.1,
           expInt = Math.round(exp * 10)
 
-    let needSave = !1
+    let needSave = !1,
+        cost = eventData.money
 
     if (userDb) {
       userDb.cmd = (userDb.cmd || 0) + 1
@@ -129,10 +129,9 @@ const handleCmd = async (m, xp, store) => {
       needSave = !0
     }
 
-    if (cost > 0) {
-      if (!userDb)
-        return xp.sendMessage(chat.id, { text: 'ulangi' }, { quoted: m })
+    if (!cost || cost <= 0) cost = await _tax(xp, m)
 
+    if (cost > 0) {
       if ((userDb.moneyDb?.money || 0) < cost)
         return xp.sendMessage(chat.id, { text: `uang kamu tersisa Rp ${userDb.moneyDb.money.toLocaleString('id-ID')}\n` + `butuh: Rp ${cost.toLocaleString('id-ID')}` }, { quoted: m })
 
@@ -148,7 +147,7 @@ const handleCmd = async (m, xp, store) => {
       needSave = !0
     }
 
-    needSave && await saveDb()
+    needSave && await save.db()
 
     ev.emit(lowCmd, xp, m, {
       args,
