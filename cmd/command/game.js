@@ -108,7 +108,6 @@ export default function game(ev) {
 
         await xp.sendMessage(chat.id, { text: `Rp ${nominal.toLocaleString('id-ID')} berhasil masukan ke bank` }, { quoted: m })
       } catch (e) {
-        console.log('[NABUNG][ERROR]', e)
         err('error pada nabung', e)
         call(xp, e, m)
       }

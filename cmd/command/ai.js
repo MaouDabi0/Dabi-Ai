@@ -315,7 +315,6 @@ export default function ai(ev) {
 
         cfg.botSetting.logic = newLogic
         fs.writeFileSync('./system/set/config.json', JSON.stringify(cfg, null, 2))
-        global.logic = newLogic
 
         await xp.sendMessage(chat.id, { text: `logic ai berhasil diubah ke:\n${newLogic}` }, { quoted: m })
       } catch (e) {

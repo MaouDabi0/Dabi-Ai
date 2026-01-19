@@ -191,9 +191,7 @@ export default function info(ev) {
         const text = args[0]?.toLowerCase(),
               cmdFile = path.join(process.cwd(), 'cmd', 'command')
 
-        if (!text) {
-          return xp.sendMessage(chat.id, { text: `gunakan:\n${prefix}${cmd} menu` }, { quoted: m })
-        }
+        if (!text) return xp.sendMessage(chat.id, { text: `gunakan:\n${prefix}${cmd} menu` }, { quoted: m })
 
         const files = fs.readdirSync(cmdFile).filter(f => f.endsWith('.js'))
         let found = null

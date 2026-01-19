@@ -711,4 +711,52 @@ export default function tools(ev) {
       }
     }
   })
+
+  ev.on({
+    name: 'whatmusic',
+    cmd: ['whatmusic', 'musikapa'],
+    tags: 'Tools Menu',
+    desc: 'mencari judul lagu',
+    owner: !1,
+    prefix: !0,
+    money: 100,
+    exp: 0.1,
+
+    run: async (xp, m, {
+      chat,
+      cmd,
+      prefix
+    }) => {
+      try {
+        const q = m.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+              audio = q?.audioMessage || q?.voiceNoteMessage
+
+        if (!q || !audio) return xp.sendMessage(chat.id, { text: 'reply pesan audio nya' }, { quoted: m })
+
+        let media
+        media = await downloadMediaMessage({ message: q || m.message }, 'buffer')
+
+        if (!media) throw new Error('media tidak terunduh')
+
+        xp.sendMessage(chat.id, { text: 'bentar aku dengerin dulu...' }, { quoted: m })
+
+        const res = await axios.post(`${termaiWeb}/api/audioProcessing/whatmusic?key=${termaiKey}`, media, { headers: { 'Content-Type': 'audio/mpeg' } })
+
+        if (!res.data?.status || !res.data.data) return xp.sendMessage(chat.id, { text: 'Lagu tidak dikenali.' }, { quoted: m })
+
+        const { title, artists, acrid } = res.data.data
+
+        let txt = `${head} ${opb} *Lagu Ditemukan* ${clb}\n`
+            txt += `${body} ${btn} *Judul:* ${title}\n`
+            txt += `${body} ${btn} *Artis:* ${artists}\n`
+            txt += `${body} ${btn} *ACRID:* ${acrid}\n`
+            txt += `${foot}${line}`
+
+      await xp.sendMessage(chat.id, { text: txt }, { quoted: m })
+      } catch (e) {
+        err('error pada whatmusic', e)
+        call(xp, e, m)
+      }
+    }
+  })
 }
