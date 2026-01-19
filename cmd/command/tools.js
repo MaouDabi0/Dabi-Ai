@@ -700,11 +700,11 @@ export default function tools(ev) {
           return xp.sendMessage(chat.id, { text: 'reply atau kirim audio atau video yang akan diubah ke vn' }, { quoted: m })
         }
 
-        let media
-        media = await downloadMediaMessage({ message: q || m.message }, 'buffer')
-        if (!media) throw new Error('media tidak terunduh')
+        let audio
+        audio = await downloadMediaMessage({ message: q || m.message }, 'buffer')
+        if (!audio) throw new Error('media tidak terunduh')
 
-        await vn(xp, chat.id, media, m)
+        await vn(xp, audio, m)
       } catch (e) {
         err(`error pada ${cmd}`, e)
         call(xp, e, m)
