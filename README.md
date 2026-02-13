@@ -3,6 +3,8 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=MaouDabi0/Dabi-Ai/README&type=Date)](https://star-history.com/#MaouDabi0/Dabi-Ai/README&Date)
 
+note: ganti akun ke https://github.com/Dabilines/Dabi-Ai
+
 ---
 
 Bot Dabi-Ai adalah **bot WhatsApp interaktif berbasis AI** yang dirancang untuk memberikan pengalaman berinteraksi yang lebih cerdas dan responsif kepada pengguna.  
